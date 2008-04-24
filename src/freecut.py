@@ -5,14 +5,36 @@ import pylab
 import copy
 
 class Item(object):
-    def __init__(self,l,w):
-        self.l = max(l,w)
-        self.w = min(l,w)
-        self.x = None
-        self.y = None
+    def __init__(self,l,w,x=None,y=None):
+        self.l = l
+        self.w = w
+        self.x = x
+        self.y = y
+
+    def __eq__(self,other):
+        return self.l==other.l and self.w==other.w and self.x==other.x and self.y==other.y
+    
+    def __ne__(self,other):
+        return not self.__eq__(other)
 
     def value(self):
         return self.l*self.w
+
+    def overlaps(self,other):
+        p1x1 = self.x
+        p1x2 = self.x+self.l
+        p1y1 = self.y
+        p1y2 = self.y+self.w
+        
+        p2x1 = other.x
+        p2x2 = other.x+other.l
+        p2y1 = other.y
+        p2y2 = other.y+other.w
+        
+        return ((p1x1<=p2x1 and p1x2>p2x1) or \
+                (p1x2>=p2x2 and p1x1<p2x2)) and \
+                ((p1y1<=p2y1 and p1y2>p2y1) or \
+                     (p1y2>=p2y2 and p1y1<p2y2))
 
     def rotate(self,b):
         if b==False:
@@ -27,6 +49,14 @@ class Item(object):
     def rect(self,color,text=None):
         rect(self.x,self.y,self.l,self.w,color,text)
 
+def overlap(items):
+    for i in range(len(items)):
+        for j in range(i+1,len(items)):
+            if items[i].overlaps(items[j]):
+                return True
+    return False
+    
+
 class Region(object):
     def __init__(self,l,w,x,y):
         self.l = l
@@ -36,39 +66,75 @@ class Region(object):
         
     def value(self):
         return self.l*self.w
-        
-    def fill(self,pool,rotated=False):
+
+    def contains(self,items):
+        if type(items)!=list:
+            items = [items]
+        for item in items:
+            if not (self.x<=item.x and self.x+self.l>=item.x+item.l and \
+               self.y<=item.y and self.y+self.w>=item.y+item.w):
+                return False
+        return True
+    
+    def is_valid_layout(self,items):
+        # first, the region has to contain all the items
+        if not self.contains(items):
+            return False
+        # second, the items may not overlap
+        if overlap(items):
+            return False
+        return True
+    
+    def fill(self,pool,S,Vf,Uf,vmax=0,rotated=False):
         for i in range(len(pool)):
             pool[i].rotate(rotated)
             # check if the item actually fits the region
             if pool[i].w>self.w or pool[i].l>self.l:
                 continue
+            ub = self.value()
+            up = Vf + Uf + ub
+#            if ub<=vmax or up<S:
+#                continue
             item = pool.pop(i)
             items = [item]
             region_A,region_B = self.split(item)
-            items = items + region_A.layout(pool)
+            VfA = Vf+item.value()
+            UfA = Uf+region_B.value()
+            itemsA,vA = region_A.layout(pool,S,VfA,UfA)
+            items = items + itemsA
             # if every item is placed, just return
-            if len(pool)==0: return items
-            items = items + region_B.layout(pool)
-            if len(pool)==0: return items
+            if len(pool)==0: return items,item.value()+vA
+            ub = item.value()+vA+region_B.value()
+#            if ub<=vmax or up<S:
+#                pool.insert(i,item)
+#                continue
+            VfB = Vf+item.value()+vA
+            UfB = Uf
+            itemsB,vB = region_B.layout(pool,S,VfB,UfB)
+            items = items + itemsB
+            v = item.value() + vA + vB
+#            if v<=vmax:
+#                pool.insert(i,item)
+#                continue
+            vmax = v
+            if len(pool)==0 or vmax+Vf==S: return items,vmax
             pool.insert(i,item)
             # TODO: need to try filling region_B first
         # if we have not returned by now, we have failed to fill the region
         items = []
-        return items
+        return items,vmax
             
-    def layout(self,pool):
+    def layout(self,pool,S,Vf=0,Uf=0):
         # nothing will fit in zero space
         if self.value()==0:
-            return []
+            return [],0
         # first place the item as-is
-        items = self.fill(pool,rotated=False)
+        items,vmax = self.fill(pool,S,Vf,Uf,vmax=0,rotated=False)
         if len(pool)!=0:
             # place the item rotated
-            items_r = self.fill(pool,rotated=True)
+            items_r,vmax = self.fill(pool,S,Vf,Uf,vmax,rotated=True)
             items = items + items_r
-            
-        return items
+        return items,vmax
         
             
 class Block(Region):
@@ -138,34 +204,36 @@ def optimize_HRBB(I,W,alpha):
 
     a = L0
     b = Lmax
+    Items = {}
     while b-a>1:
         c = (a+b)/2
         Vs = S-0.1
         print c
         r = Segment(c,W,0,0)
         pool = copy.copy(I)
-        items = r.layout(pool)
+        items,vmax = r.layout(pool,S)
+        Items[c] = copy.deepcopy(items)
         if len(items)<N:
             a = c
         else:
             b = c
     c = b
-    r = Segment(c,W,0,0)
-    items = r.layout(I)
+    print c
+    items = Items[c]
     
     if len(items)==N:
         plot_layout(items,c,W)
 
 if __name__=='__main__':
     I=[
-       Item(700,1540),
+       Item(1540,700),
        Item(650,1502),
-       Item(539,419),
-       Item(539,419),
+#       Item(539,419),
+#       Item(539,419),
        Item(301,762),
-       Item(138,138),
-       Item(188,62),
-       Item(188,62),
+#       Item(138,138),
+#       Item(188,62),
+#       Item(188,62),
 #        Item(650,74),
 #        Item(650,74),
 #        Item(650,74),
