@@ -9,6 +9,29 @@ i3 = Item(300,300)
 i4 = Item(400,400)
 
 class TestSequenceFunctions(unittest.TestCase):
+    def test_one(self):
+        pool = [i1]
+        N = len(pool)
+        W = 1000
+        L = 3000
+        S = sum([s.value() for s in pool])
+        r = Segment(L,W,0,0)
+        items,vmax,success = r.layout(pool, S, 0, 0)
+        self.assertEqual(N,len(items))
+        self.assertTrue(r.contains(items))
+        
+    def test_fail(self):
+        pool = [i1]
+        N = len(pool)
+        W = 1000
+        L = 1000
+        S = sum([s.value() for s in pool])
+        r = Segment(L,W,0,0)
+        items,vmax,success = r.layout(pool, S, 0, 0)
+        self.assertNotEqual(N,len(items))
+        self.assertFalse(success)
+        
+        
     def test_normal(self):
         pool = [i1,i2]
         N = len(pool)
@@ -16,7 +39,7 @@ class TestSequenceFunctions(unittest.TestCase):
         L = 3000
         S = sum([s.value() for s in pool])
         r = Segment(L,W,0,0)
-        items,vmax = r.layout(pool, S, 0, 0)
+        items,vmax,success = r.layout(pool, S, 0, 0)
         self.assertEqual(N,len(items))
         self.assertTrue(r.contains(items))
         self.assertFalse(overlap(items))
@@ -28,7 +51,7 @@ class TestSequenceFunctions(unittest.TestCase):
         L = 1000
         S = sum([s.value() for s in pool])
         r = Segment(L,W,0,0)
-        items,vmax = r.layout(pool, S, 0, 0)
+        items,vmax,success = r.layout(pool, S, 0, 0)
         self.assertEqual(N,len(items))
         self.assertTrue(r.contains(items))
         self.assertFalse(overlap(items))
@@ -41,7 +64,7 @@ class TestSequenceFunctions(unittest.TestCase):
         L = 1462
         S = sum([s.value() for s in pool])
         r = Segment(L,W,0,0)
-        items,vmax = r.layout(pool, S, 0, 0)
+        items,vmax,success = r.layout(pool, S, 0, 0)
         self.assertEqual(N,len(items))
         self.assertTrue(r.contains(items))
         self.assertFalse(overlap(items))

@@ -3,6 +3,8 @@
 import numpy
 import pylab
 import copy
+import psyco
+psyco.full()
 
 class Item(object):
     def __init__(self,l,w,x=None,y=None):
@@ -49,6 +51,10 @@ class Item(object):
     def rect(self,color,text=None):
         rect(self.x,self.y,self.l,self.w,color,text)
 
+    def fits(self,region):
+        # check if the item actually fits the region
+        return self.w<=region.w and self.l<=region.l
+
 def overlap(items):
     for i in range(len(items)):
         for j in range(i+1,len(items)):
@@ -56,7 +62,6 @@ def overlap(items):
                 return True
     return False
     
-
 class Region(object):
     def __init__(self,l,w,x,y):
         self.l = l
@@ -85,56 +90,62 @@ class Region(object):
             return False
         return True
     
-    def fill(self,pool,S,Vf,Uf,vmax=0,rotated=False):
-        for i in range(len(pool)):
-            pool[i].rotate(rotated)
-            # check if the item actually fits the region
-            if pool[i].w>self.w or pool[i].l>self.l:
-                continue
-            ub = self.value()
-            up = Vf + Uf + ub
-#            if ub<=vmax or up<S:
-#                continue
-            item = pool.pop(i)
-            items = [item]
-            region_A,region_B = self.split(item)
-            VfA = Vf+item.value()
-            UfA = Uf+region_B.value()
-            itemsA,vA = region_A.layout(pool,S,VfA,UfA)
-            items = items + itemsA
-            # if every item is placed, just return
-            if len(pool)==0: return items,item.value()+vA
-            ub = item.value()+vA+region_B.value()
-#            if ub<=vmax or up<S:
-#                pool.insert(i,item)
-#                continue
-            VfB = Vf+item.value()+vA
-            UfB = Uf
-            itemsB,vB = region_B.layout(pool,S,VfB,UfB)
-            items = items + itemsB
-            v = item.value() + vA + vB
-#            if v<=vmax:
-#                pool.insert(i,item)
-#                continue
-            vmax = v
-            if len(pool)==0 or vmax+Vf==S: return items,vmax
-            pool.insert(i,item)
-            # TODO: need to try filling region_B first
+    def fill(self,pool,item,S,Vf,Uf,vmax=0):
+        ub = self.value()
+        up = Vf + Uf + ub
+        if ub<=vmax or up<S:
+            return [],0,False
+        items = [item]
+        region_A,region_B = self.split(item)
+        VfA = Vf+item.value()
+        UfA = Uf+region_B.value()
+        itemsA,vA,success = region_A.layout(pool,S,VfA,UfA)
+        items = items + itemsA
+        # if every item is placed, just return
+        if success: return items,item.value()+vA,True
+        ub = item.value()+vA+region_B.value()
+        if ub<=vmax or up<S:
+            return [],0,False
+        VfB = Vf+item.value()+vA
+        UfB = Uf
+        itemsB,vB,success = region_B.layout(pool,S,VfB,UfB)
+        items = items + itemsB
+        v = item.value() + vA + vB
+        if v<=vmax:
+            return [],0,False
+        vmax = v
+        if success: return items,vmax,True
+        # TODO: need to try filling region_B first
         # if we have not returned by now, we have failed to fill the region
         items = []
-        return items,vmax
+        return items,vmax,False
             
     def layout(self,pool,S,Vf=0,Uf=0):
+        # nothing to do
+        if len(pool)==0:
+            return [],0,True
         # nothing will fit in zero space
         if self.value()==0:
-            return [],0
-        # first place the item as-is
-        items,vmax = self.fill(pool,S,Vf,Uf,vmax=0,rotated=False)
-        if len(pool)!=0:
+            return [],0,False
+        items = [] 
+        vmax = 0
+        i = 0
+        while i<len(pool):
+            item = pool.pop(i)
+            # first try to place the item as-is
+            item.rotate(False)
+            if item.fits(self):
+                items,vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
+                if success: return items,vmax,True
             # place the item rotated
-            items_r,vmax = self.fill(pool,S,Vf,Uf,vmax,rotated=True)
-            items = items + items_r
-        return items,vmax
+            item.rotate(True)
+            if item.fits(self):
+                items_r,vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
+                items = items + items_r
+                if success: return items,vmax,True
+            pool.insert(i,item)
+            i += 1
+        return items,vmax,False
         
             
 class Block(Region):
@@ -211,7 +222,7 @@ def optimize_HRBB(I,W,alpha):
         print c
         r = Segment(c,W,0,0)
         pool = copy.copy(I)
-        items,vmax = r.layout(pool,S)
+        items,vmax,success = r.layout(pool,S)
         Items[c] = copy.deepcopy(items)
         if len(items)<N:
             a = c
@@ -228,13 +239,13 @@ if __name__=='__main__':
     I=[
        Item(1540,700),
        Item(650,1502),
-#       Item(539,419),
-#       Item(539,419),
+       Item(539,419),
+       Item(539,419),
        Item(301,762),
-#       Item(138,138),
-#       Item(188,62),
-#       Item(188,62),
-#        Item(650,74),
+       Item(138,138),
+       Item(188,62),
+       Item(188,62),
+        Item(650,74),
 #        Item(650,74),
 #        Item(650,74),
 #        Item(650,74),
