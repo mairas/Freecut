@@ -91,43 +91,32 @@ class Region(object):
         return True
     
     def fill(self,pool,item,S,Vf,Uf,vmax=0):
-        ub = self.value()
-        up = Vf + Uf + ub
-        if ub<=vmax or up<S:
-            return [],0,False
-        items = [item]
-        region_A,region_B = self.split(item)
-        VfA = Vf+item.value()
-        UfA = Uf+region_B.value()
-        itemsA,vA,success = region_A.layout(pool,S,VfA,UfA)
-        items = items + itemsA
-        # if every item is placed, just return
-        if success: return items,item.value()+vA,True
-        ub = item.value()+vA+region_B.value()
-        if ub<=vmax or up<S:
-            return [],0,False
-        VfB = Vf+item.value()+vA
-        UfB = Uf
-        itemsB,vB,success = region_B.layout(pool,S,VfB,UfB)
-        items = items + itemsB
-        v = item.value() + vA + vB
-        if v<=vmax:
-            return [],0,False
-        vmax = v
-        if success: return items,vmax,True
-        # TODO: need to try filling region_B first
+        regions = self.split(item)
+        regions.sort(lambda x,y: x.value()-y.value())
+        for i,r in enumerate(regions):
+            ub = item.value()+sum([reg.value() for reg in regions[i:]])
+            up = Vf + Uf + ub
+            if ub<=vmax or up<S:
+                return 0,False
+            Vfr = Vf+vmax+item.value()
+            Ufr = Uf+sum([reg.value() for reg in regions[i+1:]])
+            vr,success = r.layout(pool,S,Vfr,Ufr)
+            v = item.value()+vmax
+            if v<=vmax:
+                return 0,False
+            vmax = v
+            if success and len(pool)==0: return v,True
         # if we have not returned by now, we have failed to fill the region
-        items = []
-        return items,vmax,False
+        return vmax,False
+
             
     def layout(self,pool,S,Vf=0,Uf=0):
         # nothing to do
         if len(pool)==0:
-            return [],0,True
+            return 0,True
         # nothing will fit in zero space
         if self.value()==0:
-            return [],0,False
-        items = [] 
+            return 0,False
         vmax = 0
         i = 0
         while i<len(pool):
@@ -135,17 +124,16 @@ class Region(object):
             # first try to place the item as-is
             item.rotate(False)
             if item.fits(self):
-                items,vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
-                if success: return items,vmax,True
+                vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
+                if success: return vmax,True
             # place the item rotated
             item.rotate(True)
             if item.fits(self):
-                items_r,vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
-                items = items + items_r
-                if success: return items,vmax,True
+                vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
+                if success: return vmax,True
             pool.insert(i,item)
             i += 1
-        return items,vmax,False
+        return vmax,False
         
             
 class Block(Region):
@@ -163,7 +151,7 @@ class Block(Region):
         item.x = self.x
         item.y = self.y
         
-        return (Block(lA,wA,xA,yA),Block(lB,wB,xB,yB))
+        return [Block(lA,wA,xA,yA),Block(lB,wB,xB,yB)]
         
 class Segment(Region):
     def split(self,item,rotated=False):
@@ -180,7 +168,7 @@ class Segment(Region):
         item.x = self.x
         item.y = self.y
         
-        return (Block(lA,wA,xA,yA),Segment(lB,wB,xB,yB))
+        return [Block(lA,wA,xA,yA),Segment(lB,wB,xB,yB)]
 
 
 def rect(x,y,l,w,c,text=None):
@@ -222,14 +210,20 @@ def optimize_HRBB(I,W,alpha):
         print c
         r = Segment(c,W,0,0)
         pool = copy.copy(I)
-        items,vmax,success = r.layout(pool,S)
+        vmax,success = r.layout(pool,S)
+        items = copy.copy(I)
+        for p in pool:
+            items.remove(p)
         Items[c] = copy.deepcopy(items)
-        if len(items)<N:
+        if len(pool)>0:
             a = c
+            print ">",
         else:
             b = c
+            print "<",
+    print
     c = b
-    print c
+    print "=",c
     items = Items[c]
     
     if len(items)==N:
@@ -237,18 +231,18 @@ def optimize_HRBB(I,W,alpha):
 
 if __name__=='__main__':
     I=[
-       Item(1540,700),
+#       Item(1540,700),
        Item(650,1502),
        Item(539,419),
        Item(539,419),
        Item(301,762),
-       Item(138,138),
-       Item(188,62),
-       Item(188,62),
+#       Item(138,138),
+#       Item(188,62),
+#       Item(188,62),
         Item(650,74),
-#        Item(650,74),
-#        Item(650,74),
-#        Item(650,74),
+        Item(650,74),
+        Item(650,74),
+        Item(650,74),
 #        Item(650,74),
 #        Item(100,450),
 #        Item(1502,74),
