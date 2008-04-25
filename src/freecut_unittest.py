@@ -16,7 +16,10 @@ class TestSequenceFunctions(unittest.TestCase):
         L = 3000
         S = sum([s.value() for s in pool])
         r = Segment(L,W,0,0)
-        items,vmax,success = r.layout(pool, S, 0, 0)
+        items = copy.copy(pool)
+        vmax,success = r.layout(pool, S, 0, 0)
+        for p in pool:
+            items.remove(p)
         self.assertEqual(N,len(items))
         self.assertTrue(r.contains(items))
         
@@ -27,7 +30,10 @@ class TestSequenceFunctions(unittest.TestCase):
         L = 1000
         S = sum([s.value() for s in pool])
         r = Segment(L,W,0,0)
-        items,vmax,success = r.layout(pool, S, 0, 0)
+        items = copy.copy(pool)
+        vmax,success = r.layout(pool, S, 0, 0)
+        for p in pool:
+            items.remove(p)
         self.assertNotEqual(N,len(items))
         self.assertFalse(success)
         
@@ -39,7 +45,10 @@ class TestSequenceFunctions(unittest.TestCase):
         L = 3000
         S = sum([s.value() for s in pool])
         r = Segment(L,W,0,0)
-        items,vmax,success = r.layout(pool, S, 0, 0)
+        items = copy.copy(pool)
+        vmax,success = r.layout(pool, S, 0, 0)
+        for p in pool:
+            items.remove(p)
         self.assertEqual(N,len(items))
         self.assertTrue(r.contains(items))
         self.assertFalse(overlap(items))
@@ -51,7 +60,10 @@ class TestSequenceFunctions(unittest.TestCase):
         L = 1000
         S = sum([s.value() for s in pool])
         r = Segment(L,W,0,0)
-        items,vmax,success = r.layout(pool, S, 0, 0)
+        items = copy.copy(pool)
+        vmax,success = r.layout(pool, S, 0, 0)
+        for p in pool:
+            items.remove(p)
         self.assertEqual(N,len(items))
         self.assertTrue(r.contains(items))
         self.assertFalse(overlap(items))
@@ -61,10 +73,13 @@ class TestSequenceFunctions(unittest.TestCase):
         pool = [Item(1540,700),Item(650,1502),Item(301,762),]
         N = len(pool)
         W = 1830
-        L = 1462
+        L = 1540
         S = sum([s.value() for s in pool])
         r = Segment(L,W,0,0)
-        items,vmax,success = r.layout(pool, S, 0, 0)
+        items = copy.copy(pool)
+        vmax,success = r.layout(pool, S, 0, 0)
+        for p in pool:
+            items.remove(p)
         self.assertEqual(N,len(items))
         self.assertTrue(r.contains(items))
         self.assertFalse(overlap(items))

@@ -3,8 +3,8 @@
 import numpy
 import pylab
 import copy
-import psyco
-psyco.full()
+#import psyco
+#psyco.full()
 
 class Item(object):
     def __init__(self,l,w,x=None,y=None):
@@ -39,7 +39,7 @@ class Item(object):
                      (p1y2>=p2y2 and p1y1<p2y2))
 
     def rotate(self,b):
-        if b==False:
+        if b==True:
             l = max(self.w,self.l)
             w = min(self.w,self.l)
         else:
@@ -91,24 +91,24 @@ class Region(object):
         return True
     
     def fill(self,pool,item,S,Vf,Uf,vmax=0):
-        regions = self.split(item)
+        # step 4.2
+        regions = self.split(item) 
         regions.sort(lambda x,y: x.value()-y.value())
         for i,r in enumerate(regions):
-            ub = item.value()+sum([reg.value() for reg in regions[i:]])
+            ub = item.value()+sum([reg.value() for reg in regions[i:]]) 
             up = Vf + Uf + ub
-            if ub<=vmax or up<S:
-                return 0,False
+            #if ub<=vmax or up<S:
+            #    return item.value(),False
             Vfr = Vf+vmax+item.value()
             Ufr = Uf+sum([reg.value() for reg in regions[i+1:]])
             vr,success = r.layout(pool,S,Vfr,Ufr)
             v = item.value()+vmax
-            if v<=vmax:
-                return 0,False
+            #if v<=vmax:
+            #    return item.value(),False
             vmax = v
-            if success and len(pool)==0: return v,True
+            if success and len(pool)==0: return vmax,True
         # if we have not returned by now, we have failed to fill the region
-        return vmax,False
-
+        return vmax,True
             
     def layout(self,pool,S,Vf=0,Uf=0):
         # nothing to do
@@ -231,42 +231,42 @@ def optimize_HRBB(I,W,alpha):
 
 if __name__=='__main__':
     I=[
-#       Item(1540,700),
-       Item(650,1502),
-       Item(539,419),
-       Item(539,419),
-       Item(301,762),
-#       Item(138,138),
-#       Item(188,62),
-#       Item(188,62),
+        Item(650,1502),
+        Item(1540,700),
+        Item(539,419),
+        Item(539,419),
+        Item(301,762),
+        Item(138,138),
+        Item(188,62),
+        Item(188,62),
         Item(650,74),
         Item(650,74),
         Item(650,74),
         Item(650,74),
-#        Item(650,74),
-#        Item(100,450),
-#        Item(1502,74),
-#        Item(1502,74),
-#        Item(724,100),
-#        Item(724,100),
-#        Item(724,100),
-#        Item(724,100),
-#        Item(1540,100),
-#        Item(1540,100),
-#        Item(83,80),
-#        Item(57,57),
-#        Item(57,57),
-#        Item(57,57),
-#        Item(138,100),
-#        Item(100,100),
-#        Item(100,212),
-#        Item(100,212),
+        Item(650,74),
+        Item(100,450),
+        Item(1502,74),
+        Item(1502,74),
+        Item(724,100),
+        Item(724,100),
+        Item(724,100),
+        Item(724,100),
+        Item(1540,100),
+        Item(1540,100),
+        Item(83,80),
+        Item(57,57),
+        Item(57,57),
+        Item(57,57),
+        Item(138,100),
+        Item(100,100),
+        Item(100,212),
+        Item(100,212),
        ]
 
-    pylab.ion()
+    #pylab.ion()
     optimize_HRBB(I,1830,2.0)
     pylab.show()
     
     for item in I:
-        print item.w,item.l,item.x,item.y
+        print item.l,item.w,item.x,item.y
     
