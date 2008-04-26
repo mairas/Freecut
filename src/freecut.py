@@ -3,9 +3,17 @@
 import numpy
 import pylab
 import copy
+import sys
 #import psyco
 #psyco.full()
 
+def overlap(items):
+    for i in range(len(items)):
+        for j in range(i+1,len(items)):
+            if items[i].overlaps(items[j]):
+                return True
+    return False
+    
 class Item(object):
     def __init__(self,l,w,x=None,y=None):
         self.l = l
@@ -48,20 +56,14 @@ class Item(object):
         self.w = w
         self.l = l 
 
-    def rect(self,color,text=None):
-        rect(self.x,self.y,self.l,self.w,color,text)
+    def plot_rect(self,color,text=None):
+        plot_rect(self.x,self.y,self.l,self.w,color,text)
 
     def fits(self,region):
         # check if the item actually fits the region
         return self.w<=region.w and self.l<=region.l
 
-def overlap(items):
-    for i in range(len(items)):
-        for j in range(i+1,len(items)):
-            if items[i].overlaps(items[j]):
-                return True
-    return False
-    
+
 class Region(object):
     def __init__(self,l,w,x,y):
         self.l = l
@@ -152,6 +154,7 @@ class Block(Region):
         item.y = self.y
         
         return [Block(lA,wA,xA,yA),Block(lB,wB,xB,yB)]
+    
         
 class Segment(Region):
     def split(self,item,rotated=False):
@@ -171,23 +174,27 @@ class Segment(Region):
         return [Block(lA,wA,xA,yA),Segment(lB,wB,xB,yB)]
 
 
-def rect(x,y,l,w,c,text=None):
+def plot_rect(x,y,l,w,c,text=None):
     pylab.plot([x,x,x+l,x+l,x],[y,y+w,y+w,y,y],c)
     if text!=None:
-        pylab.text(x+l/2,y+w/2,text)
+        pylab.text(x+l/2, y+w/2,text, fontsize=8, horizontalalignment='center',
+         verticalalignment='center',)
 
-def plot_layout(items,L,W):
+def plot_layout(items,L,W,show=False,draw=False):
     colors = ['r','g','b','c','m','y']
     if len(items)>0:
         pylab.clf()
         pylab.axes(aspect='equal')
-        rect(0,0,L,W,'k')
+        plot_rect(0,0,L,W,'k')
 
         for i,item in enumerate(items):
-            item.rect(colors[i%len(colors)],str(i))
-        pylab.draw()
+            item.plot_rect(colors[i%len(colors)],"%d\n%d" % (item.l,item.w))
+        if draw:
+            pylab.draw()
+        if show:
+            pylab.show()
     
-def optimize_HRBB(I,W,alpha):
+def optimize_HRBB(I,W,alpha,verbose=False):
     # arrange the items in descending order of their areas
     I.sort(reverse=True,key=lambda x: x.w*x.l)
     N = len(I)
@@ -207,7 +214,8 @@ def optimize_HRBB(I,W,alpha):
     while b-a>1:
         c = (a+b)/2
         Vs = S-0.1
-        print c
+        if verbose:
+            sys.stderr.write("%d\n" % (c,))
         r = Segment(c,W,0,0)
         pool = copy.copy(I)
         vmax,success = r.layout(pool,S)
@@ -217,17 +225,21 @@ def optimize_HRBB(I,W,alpha):
         Items[c] = copy.deepcopy(items)
         if len(pool)>0:
             a = c
-            print ">",
+            if verbose:
+                sys.stderr.write("> ")
         else:
             b = c
-            print "<",
-    print
+            if verbose:
+                sys.stderr.write("< ")
     c = b
-    print "=",c
-    items = Items[c]
+    if verbose:
+        sys.stderr.write("= %d\n" % (c,))
+    #items = Items[c]
     
-    if len(items)==N:
-        plot_layout(items,c,W)
+    #if len(items)==N:
+    #    plot_layout(items,c,W)
+        
+    return c,items
 
 if __name__=='__main__':
     I=[
@@ -264,8 +276,9 @@ if __name__=='__main__':
        ]
 
     #pylab.ion()
-    optimize_HRBB(I,1830,2.0)
-    pylab.show()
+    W = 1830
+    L,items = optimize_HRBB(I,W,2.0)
+    plot_layout(items,L,W,show=True)
     
     for item in I:
         print item.l,item.w,item.x,item.y
