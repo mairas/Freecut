@@ -36,6 +36,9 @@ if __name__=='__main__':
                       help="the trim amount")
     parser.add_option("-W","--width",dest="width",type="int",
                       help="the plate width")
+    parser.add_option("-s", "--segments", action="store_true",
+                      dest="segments", default=False,
+                      help="cut all regions into segments only")
     parser.add_option("--alpha",dest="alpha",type="float",
                       help="maximum plate length as "
                       "a multiple of minimum surface area",
@@ -45,9 +48,11 @@ if __name__=='__main__':
     W = options.width
     alpha = options.alpha
     trim = options.trim
+    seg = options.segments
 
     items = input_items(args[0],options.trim)
-    L,items = optimize_HRBB(items,W+trim,alpha,verbose=True)
+    L,items = optimize_HRBB(items,W+trim,alpha,verbose=True,
+                            segments_only=seg)
 
     # remove the trim from the pieces
     L -= trim

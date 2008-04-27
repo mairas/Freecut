@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
-import numpy
 import pylab
 import copy
 import sys
+import math
+
 #import psyco
 #psyco.full()
 
@@ -65,11 +66,12 @@ class Item(object):
 
 
 class Region(object):
-    def __init__(self,l,w,x,y):
+    def __init__(self,l,w,x,y,segments_only=False):
         self.l = l
         self.w = w
         self.x = x
         self.y = y
+        self.segments_only=segments_only
         
     def value(self):
         return self.l*self.w
@@ -171,7 +173,8 @@ class Segment(Region):
         item.x = self.x
         item.y = self.y
         
-        return [Block(lA,wA,xA,yA),Segment(lB,wB,xB,yB)]
+        reg = (Block,Segment)[self.segments_only]
+        return [reg(lA,wA,xA,yA,self.segments_only),Segment(lB,wB,xB,yB,self.segments_only)]
 
 
 def plot_rect(x,y,l,w,c,text=None):
@@ -194,7 +197,7 @@ def plot_layout(items,L,W,show=False,draw=False):
         if show:
             pylab.show()
     
-def optimize_HRBB(I,W,alpha,verbose=False):
+def optimize_HRBB(I,W,alpha,verbose=False,segments_only=False):
     # arrange the items in descending order of their areas
     I.sort(reverse=True,key=lambda x: x.w*x.l)
     N = len(I)
@@ -205,7 +208,7 @@ def optimize_HRBB(I,W,alpha,verbose=False):
 
     S = sum([el.value() for el in I])
 
-    L0 = int(numpy.ceil(float(S)/W))
+    L0 = int(math.ceil(float(S)/W))
     Lmax = int(alpha*L0)
 
     a = L0
@@ -216,7 +219,7 @@ def optimize_HRBB(I,W,alpha,verbose=False):
         Vs = S-0.1
         if verbose:
             sys.stderr.write("%d\n" % (c,))
-        r = Segment(c,W,0,0)
+        r = Segment(c,W,0,0,segments_only=segments_only)
         pool = copy.copy(I)
         vmax,success = r.layout(pool,S)
         items = copy.copy(I)
