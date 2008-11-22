@@ -4,27 +4,41 @@ import sys
 from freecut import Item,optimize_HRBB,plot_layout
 import re
 from optparse import OptionParser
+from pyparsing import *
+
+def parse_input(f):
+    # define the grammar
+    ParserElement.setDefaultWhitespaceChars(" \t")
+    number = Word(nums).setParseAction( lambda s,l,t: [ int(t[0]) ] )
+    comma = Literal(",").suppress()
+    nl = Literal("\n").suppress()
+    amount = Optional((comma + number).setParseAction( lambda s,l,t: [ int(t[0]) ]),default=1)
+    rotatable = Optional(comma + Literal("N"),default="Y").setParseAction( lambda s,l,t: [ t[0]=='Y' ] )
+    data = number + comma + number + Optional(amount + Optional(rotatable))
+    row = Group(data + restOfLine.setParseAction( lambda s,l,t: [ t[0].strip() ]))
+    rows = ZeroOrMore(pythonStyleComment.suppress() ^ row ^ nl.suppress())
+
+    return rows.parseFile(f)
 
 def input_items(filename,trim):
-    lines = open(filename,'r').readlines()
+    lines = parse_input(filename)
 
-    # remove empty lines
-    el = re.compile('^\s*$')
-    # remove comments
-    cl = re.compile('^\s*#')
-    
-    clean = []
-    for line in lines:
-        if el.match(line)==None and cl.match(line)==None:
-            clean.append(line)
-    
     items = []
     
-    for l in clean:
-        ns = l.split()
-        n = [int(n)+trim for n in ns]
-        items.append(Item(n[0],n[1]))
-    
+    for line in lines:
+        l,w,n,r,s = line
+        l += trim
+        w += trim
+        if n>1:
+            for i in range(n):
+                if len(s)>0:
+                    s_i = "%s #%d" % (s,i+1)
+                else:
+                    s_i = ""
+                items.append(Item(l,w,rotatable=r,s=s_i))
+        else:
+            items.append(Item(l,w,rotatable=r,s=s))
+                
     return items
 
 if __name__=='__main__':

@@ -16,11 +16,13 @@ def overlap(items):
     return False
     
 class Item(object):
-    def __init__(self,l,w,x=None,y=None):
+    def __init__(self,l,w,x=None,y=None,rotatable=True,s=""):
         self.l = l
         self.w = w
         self.x = x
         self.y = y
+        self.rotatable = rotatable
+        self.s = s
 
     def __eq__(self,other):
         return self.l==other.l and self.w==other.w and self.x==other.x and self.y==other.y
@@ -131,10 +133,11 @@ class Region(object):
                 vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
                 if success: return vmax,True
             # place the item rotated
-            item.rotate(True)
-            if item.fits(self):
-                vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
-                if success: return vmax,True
+            if item.rotatable==True:
+                item.rotate(True)
+                if item.fits(self):
+                    vmax,success = self.fill(pool,item,S,Vf,Uf,vmax)
+                    if success: return vmax,True
             pool.insert(i,item)
             i += 1
         return vmax,False
