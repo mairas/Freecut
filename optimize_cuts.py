@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-from freecut import Item,optimize_HRBB,plot_layout
+from hrbb import Item,optimize_HRBB,plot_layout
 import re
 from optparse import OptionParser
 from pyparsing import *
@@ -9,7 +9,9 @@ from pyparsing import *
 def parse_input(f):
     # define the grammar
     ParserElement.setDefaultWhitespaceChars(" \t")
-    number = Word(nums).setParseAction( lambda s,l,t: [ int(t[0]) ] )
+    floatnum = Combine(Word(nums) + "." + Word(nums) +
+                       Optional('e'+oneOf("+ -")+Word(nums)))
+    number = (Word(nums)^floatnum).setParseAction( lambda s,l,t: [ float(t[0]) ] )
     comma = Literal(",").suppress()
     nl = Literal("\n").suppress()
     amount = Optional((comma + number).setParseAction( lambda s,l,t: [ int(t[0]) ]),default=1)

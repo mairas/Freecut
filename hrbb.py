@@ -19,6 +19,7 @@ class Item(object):
     def __init__(self,l,w,x=None,y=None,rotatable=True,s=""):
         self.l = l
         self.w = w
+        self.dims = l,w
         self.x = x
         self.y = y
         self.rotatable = rotatable
@@ -51,16 +52,14 @@ class Item(object):
 
     def rotate(self,b):
         if b==True:
-            l = max(self.w,self.l)
-            w = min(self.w,self.l)
+            w,l = self.dims
         else:
-            w = max(self.w,self.l)
-            l = min(self.w,self.l)
+            l,w = self.dims
         self.w = w
         self.l = l 
 
-    def plot_rect(self,color,text=None):
-        plot_rect(self.x,self.y,self.l,self.w,color,text)
+    def plot_rect(self,color):
+        plot_rect(self.x,self.y,self.l,self.w,color,self.s)
 
     def fits(self,region):
         # check if the item actually fits the region
@@ -99,7 +98,7 @@ class Region(object):
     def fill(self,pool,item,S,Vf,Uf,vmax=0):
         # step 4.2
         regions = self.split(item) 
-        regions.sort(lambda x,y: x.value()-y.value())
+        regions.sort(key=lambda x: x.value())
         for i,r in enumerate(regions):
             ub = item.value()+sum([reg.value() for reg in regions[i:]]) 
             up = Vf + Uf + ub
@@ -183,18 +182,31 @@ class Segment(Region):
 def plot_rect(x,y,l,w,c,text=None):
     pylab.plot([x,x,x+l,x+l,x],[y,y+w,y+w,y,y],c)
     if text!=None:
-        pylab.text(x+l/2, y+w/2,text, fontsize=8, horizontalalignment='center',
-         verticalalignment='center',)
+        pylab.text(x+l/2,y,str(l), fontsize=8,
+                   horizontalalignment='center',
+                   verticalalignment='bottom',)
+        pylab.text(x+l,y+w/2,str(w), fontsize=8,
+                   horizontalalignment='right',
+                   verticalalignment='center',)
+        if w>l:
+            pylab.text(x+l/3, y+w/2,text, fontsize=8,
+                       horizontalalignment='center',
+                       verticalalignment='center',
+                       rotation=90)
+        else:
+            pylab.text(x+l/2, y+w*2./3,text, fontsize=8,
+                       horizontalalignment='center',
+                       verticalalignment='center',)
 
 def plot_layout(items,L,W,show=False,draw=False):
-    colors = ['r','g','b','c','m','y']
+    colors = ['r','g','b','c','m','y','k']
     if len(items)>0:
         pylab.clf()
         pylab.axes(aspect='equal')
         plot_rect(0,0,L,W,'k')
 
         for i,item in enumerate(items):
-            item.plot_rect(colors[i%len(colors)],"%d\n%d" % (item.l,item.w))
+            item.plot_rect(colors[i%len(colors)])
         if draw:
             pylab.draw()
         if show:
@@ -212,6 +224,7 @@ def optimize_HRBB(I,W,alpha,verbose=False,segments_only=False):
     S = sum([el.value() for el in I])
 
     L0 = int(math.ceil(float(S)/W))
+    #L0 = 100
     Lmax = int(alpha*L0)
 
     a = L0

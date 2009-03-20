@@ -1,0 +1,18 @@
+1540,700	table board
+1502.4,650	table bottom board 
+543.1,419,2	x-axis gantry side
+766.5,300	gantry bottom board
+649.8,166.9	table end piece
+1540,100,2	x-axis lower rail
+1502,74,2	table x-axis strut
+649.8,74,5	table y-axis strut
+724,100,2	y-rail
+450,100,2	z-rail
+141.1,137.7	y-axis front bearing box
+137.7,100	y-axis hind bearing box
+100,93.3,2	y-axis bearing support
+109.5,100	z-rail top
+83,80		router attachment
+190,62.3,2	z-axis bearing support
+#190,77.3,2	z-axis bearing support
+57.2,57.2,3	motor base

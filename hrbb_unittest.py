@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import unittest
-from freecut import *
+from hrbb import *
 
 i1 = Item(100,2000)
 i2 = Item(100,2000)
