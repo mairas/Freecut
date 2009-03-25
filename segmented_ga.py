@@ -7,12 +7,12 @@ import math
 
 class ItemType(object):
     def __init__(self, width, length, description=""):
-        self.w = w
-        self.l = l
+        self.w = width
+        self.l = length
         self.description = description
 
 class Item(object):
-    def __init__(self,type_,rotated):
+    def __init__(self,type_,rotated=False):
         self.type = type_
         self.rotated = rotated
         # location within the region tree
@@ -23,7 +23,8 @@ class Item(object):
     def rotate(self):
         self.rotated = not self.rotated
 
-
+    l = property(lambda self: self.type.l)
+    w = property(lambda self: self.type.w)
 
 class Region(object):
     """
@@ -35,7 +36,7 @@ class Region(object):
         self.l = l
         self.w = w
         self.item = None
-        self.subregions = []
+        self.regions = []
 
     def area(self):
         return self.l*self.w
@@ -52,14 +53,14 @@ class Region(object):
 	"""
 
 	# only place the item if the region is empty
-	if self.item == None and not self.subregions:
+	if self.item == None and not self.regions:
 	    for item in items:
 		if self.fits(item):
 		    self.split(item)
 		    items.remove(item)
 		    break
 	if items:
-	    for sr in self.subregions:
+	    for sr in self.regions:
 		items = sr.populate(items)
 		if not items: break
 		
@@ -67,7 +68,7 @@ class Region(object):
 
     def clear_region(self):
 	self.item = None
-	self.subregions = []
+	self.regions = []
 
     def verify_item_size(self):
 	"""
@@ -76,6 +77,8 @@ class Region(object):
 	"""
 	if self.item.l>l or self.item.w>w:
 	    self.drop_item()
+            return False
+        return True
 
     def fix_layout(self,items,w,l):
 	"""
@@ -89,12 +92,21 @@ class Region(object):
 	self.repair_sizes(w,l)
 
     def remove_duplicates(self,seen={}):
+        """
+        Remove duplicate items from the layout.
+
+        Returns the amount of items removed.
+        """
+        num_removed = 0
 	if seen.has_key(self.item.id):
 	    self.drop_item()
+            num_removed += 1
 	else:
 	    seen[self.id] = True
-	for sr in self.subregions:
-	    sr.remove_duplicates(seen)
+	for sr in self.regions:
+	    num_removed += sr.remove_duplicates(seen)
+
+        return num_removed
 
 
 class Block(Region):
@@ -115,7 +127,7 @@ class Block(Region):
 
         item.location = self
 
-	self.subregions = [Block(lA,wA),Block(lB,wB)]
+	self.regions = [Block(lA,wA),Block(lB,wB)]
 
     def drop_item(self):
 	"""
@@ -123,17 +135,22 @@ class Block(Region):
 	Subregion A is grown to occupy the freed space.
 	"""
 	self.item = None
-	self.subregions[0].l = self.l
+	self.regions[0].l = self.l
 
     def repair_sizes(self,w,l):
 	"""
 	Walk through the region tree and make sure all regions fit
 	the available space.
-	"""
-	self.verify_item_size(w,l)
 
-	srA = self.subregions[0]
-	srB = self.subregions[1]
+        Returns the amount of removed regions (not including subregions).
+	"""
+        num_removed = 0
+        
+	if not self.verify_item_size(w,l):
+            num_removed += 1
+
+	srA = self.regions[0]
+	srB = self.regions[1]
 
 	if item:
 	    new_wA = w
@@ -141,13 +158,15 @@ class Block(Region):
 	    new_wB = w-self.item.w
 	    new_lB = l
 
-	    srA.repair_sizes(new_wA,new_lA)
-	    srB.repair_sizes(new_wB,new_lB)
+	    num_removed += srA.repair_sizes(new_wA,new_lA)
+	    num_removed += srB.repair_sizes(new_wB,new_lB)
 	else:
-	    srA.repair_sizes(w,l)
+	    num_removed += srA.repair_sizes(w,l)
 	    wB = w-srA.w
 	    lB = l
-	    srB.repair_sizes(wB,lB)
+	    num_removed += srB.repair_sizes(wB,lB)
+
+        return num_removed
 	    
 
 class Segment(Region):
@@ -176,17 +195,22 @@ class Segment(Region):
 	Subregion A is grown to occupy the freed space.
 	"""
 	self.item = None
-	self.subregions[0].w = self.w
+	self.regions[0].w = self.w
 
     def repair_sizes(self,w,l):
 	"""
 	Walk through the region tree and make sure all regions fit
 	the available space.
-	"""
-	self.verify_item_size(w,l)
 
-	srA = self.subregions[0]
-	srB = self.subregions[1]
+        Returns the amount of removed regions (not including subregions).
+        """
+        num_removed = 0
+
+        if not self.verify_item_size(w,l):
+            num_removed += 1
+
+	srA = self.regions[0]
+	srB = self.regions[1]
 
 	if item:
 	    new_wA = w-self.item.w
@@ -194,11 +218,12 @@ class Segment(Region):
 	    new_wB = w
 	    new_lB = l-self.item.l
 
-	    srA.repair_sizes(new_wA,new_lA)
-	    srB.repair_sizes(new_wB,new_lB)
+	    num_removed += srA.repair_sizes(new_wA,new_lA)
+	    num_removed += srB.repair_sizes(new_wB,new_lB)
 	else:
-	    srA.repair_sizes(w,l)
+	    num_removed += srA.repair_sizes(w,l)
 	    wB = w
 	    lB = l-srA.l
-	    srB.repair_sizes(wB,lB)
+	    num_removed += srB.repair_sizes(wB,lB)
 
+        return num_removed
