@@ -11,6 +11,9 @@ class ItemType(object):
         self.l = length
         self.description = description
 
+    def __repr__(self):
+        return "ItemType(%d,%d,'%s')" % (self.w,self.l,self.description)
+
 class Item(object):
     def __init__(self,type_,rotated=False):
         self.type = type_
@@ -26,15 +29,21 @@ class Item(object):
     l = property(lambda self: self.type.l)
     w = property(lambda self: self.type.w)
 
+    def __repr__(self):
+        return "Item(type_=%r,rotated=%d)" % (self.type,self.rotated)
+    
+    def __str__(self):
+        return "Item (%d,%d) of type %r" % (self.w,self.l,self.type)
+
 class Region(object):
     """
     Region is any rectangular area on a plane.
     A Region may contain an item, in which case the remaining area is divided
     into two subregions.
     """
-    def __init__(self,l,w):
-        self.l = l
+    def __init__(self,w,l):
         self.w = w
+        self.l = l
         self.item = None
         self.regions = []
 
@@ -42,7 +51,7 @@ class Region(object):
         return self.l*self.w
 
     def fits(self,item):
-	return (item.w<self.w and item.l<self.l)
+	return (item.w<=self.w and item.l<=self.l)
 
     def populate(self,items):
 	"""
@@ -70,14 +79,15 @@ class Region(object):
 	self.item = None
 	self.regions = []
 
-    def verify_item_size(self):
+    def verify_item_size(self,w,l):
 	"""
 	Verify that that item will fit the region and if not,
 	remove the item.
 	"""
-	if self.item.l>l or self.item.w>w:
-	    self.drop_item()
-            return False
+        if self.item:
+            if self.item.l>l or self.item.w>w:
+                self.drop_item()
+                return False
         return True
 
     def fix_layout(self,items,w,l):
@@ -88,21 +98,22 @@ class Region(object):
 	#   	 and then remove them again... Should first remove the genuine
 	#	 duplicates and get a list of placed items
 	self.populate(items)
-	self.remove_duplicates()
+	self.remove_duplicates({})
 	self.repair_sizes(w,l)
 
-    def remove_duplicates(self,seen={}):
+    def remove_duplicates(self,seen):
         """
         Remove duplicate items from the layout.
 
         Returns the amount of items removed.
         """
         num_removed = 0
-	if seen.has_key(self.item.id):
-	    self.drop_item()
-            num_removed += 1
-	else:
-	    seen[self.id] = True
+        if self.item:
+            if seen.has_key(self.item.id):
+                self.drop_item()
+                num_removed += 1
+            else:
+                seen[self.item.id] = True
 	for sr in self.regions:
 	    num_removed += sr.remove_duplicates(seen)
 
@@ -126,8 +137,9 @@ class Block(Region):
         wB = self.w-item.w
 
         item.location = self
+        self.item = item
 
-	self.regions = [Block(lA,wA),Block(lB,wB)]
+	self.regions = [Block(wA,lA),Block(wB,lB)]
 
     def drop_item(self):
 	"""
@@ -149,22 +161,23 @@ class Block(Region):
 	if not self.verify_item_size(w,l):
             num_removed += 1
 
-	srA = self.regions[0]
-	srB = self.regions[1]
+        if self.regions:
+            srA = self.regions[0]
+            srB = self.regions[1]
 
-	if item:
-	    new_wA = w
-	    new_lA = l-self.item.l
-	    new_wB = w-self.item.w
-	    new_lB = l
+            if self.item:
+                new_wA = w
+                new_lA = l-self.item.l
+                new_wB = w-self.item.w
+                new_lB = l
 
-	    num_removed += srA.repair_sizes(new_wA,new_lA)
-	    num_removed += srB.repair_sizes(new_wB,new_lB)
-	else:
-	    num_removed += srA.repair_sizes(w,l)
-	    wB = w-srA.w
-	    lB = l
-	    num_removed += srB.repair_sizes(wB,lB)
+                num_removed += srA.repair_sizes(new_wA,new_lA)
+                num_removed += srB.repair_sizes(new_wB,new_lB)
+            else:
+                num_removed += srA.repair_sizes(w,l)
+                wB = w-srA.w
+                lB = l
+                num_removed += srB.repair_sizes(wB,lB)
 
         return num_removed
 	    
@@ -179,15 +192,16 @@ class Segment(Region):
     +---+---+
     """
     def split(self,item):
-        lA = self.l-item.l
-        wA = item.w
+        lA = item.l
+        wA = self.w-item.w
         
-        lB = self.l
-        wB = self.w-item.w
+        lB = self.l-item.l
+        wB = self.w
 
         item.location = self
+        self.item = item
         
-        return [Block(lA,wA),Segment(lB,wB)]
+        self.regions = [Block(wA,lA),Segment(wB,lB)]
 
     def drop_item(self):
 	"""
@@ -209,21 +223,22 @@ class Segment(Region):
         if not self.verify_item_size(w,l):
             num_removed += 1
 
-	srA = self.regions[0]
-	srB = self.regions[1]
+        if self.regions:
+            srA = self.regions[0]
+            srB = self.regions[1]
 
-	if item:
-	    new_wA = w-self.item.w
-	    new_lA = self.item.l
-	    new_wB = w
-	    new_lB = l-self.item.l
-
-	    num_removed += srA.repair_sizes(new_wA,new_lA)
-	    num_removed += srB.repair_sizes(new_wB,new_lB)
-	else:
-	    num_removed += srA.repair_sizes(w,l)
-	    wB = w
-	    lB = l-srA.l
-	    num_removed += srB.repair_sizes(wB,lB)
+            if self.item:
+                new_wA = w-self.item.w
+                new_lA = self.item.l
+                new_wB = w
+                new_lB = l-self.item.l
+                
+                num_removed += srA.repair_sizes(new_wA,new_lA)
+                num_removed += srB.repair_sizes(new_wB,new_lB)
+            else:
+                num_removed += srA.repair_sizes(w,l)
+                wB = w
+                lB = l-srA.l
+                num_removed += srB.repair_sizes(wB,lB)
 
         return num_removed

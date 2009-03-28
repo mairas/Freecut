@@ -65,6 +65,13 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(l,[])
         self.assertEqual(s.remove_duplicates({}),2)
 
+    def test_repair_sizes(self):
+        s = Segment(2000,4000)
+        l = s.populate([i2,i3,i4])
+        s.item=i1
+        s.repair_sizes(2000,4000)
+        
+        
 if __name__ == '__main__':
     unittest.main()
 
