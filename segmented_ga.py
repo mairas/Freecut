@@ -120,6 +120,15 @@ class Region(object):
         return num_removed
 
 
+    def trim_length(self):
+        """
+        Trim region lengths.
+        """
+        w = self.w
+        self.trim()
+        self.w = w
+
+    
 class Block(Region):
     """
     Block is a region divided as follows:
@@ -209,7 +218,7 @@ class Block(Region):
         self.w = max(wI,wA)+wB
         self.l = max(lI+lA,lB)
 
-
+        
 class Segment(Region):
     """
     Segment is a region divided as follows:
