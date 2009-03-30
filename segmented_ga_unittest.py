@@ -67,10 +67,23 @@ class TestSequenceFunctions(unittest.TestCase):
 
     def test_repair_sizes(self):
         s = Segment(2000,4000)
-        l = s.populate([i2,i3,i4])
+        s.populate([i3,i2,i4])
         s.item=i1
-        s.repair_sizes(2000,4000)
-        
+        n = s.repair_sizes(2000,4000)
+        #self.assertEqual(n,1)
+
+    def test_trim_segment(self):
+        s = Segment(2000,4000)
+        s.populate([i1,i2])
+        s.trim()
+        self.assertEqual((s.w,s.l),(200,1500))
+
+    def test_trim_block(self):
+        s = Block(2000,4000)
+        s.populate([i1,i2])
+        s.trim()
+        self.assertEqual((s.w,s.l),(100,3000))
+
         
 if __name__ == '__main__':
     unittest.main()

@@ -180,7 +180,35 @@ class Block(Region):
                 num_removed += srB.repair_sizes(wB,lB)
 
         return num_removed
-	    
+
+    def trim(self):
+        """
+        Trim the region sizes.
+
+        Trim walks through the region tree and reduces the region sizes
+        to a minimum being able to hold the item and the subregions.
+        """
+        for sr in self.regions:
+            sr.trim()
+
+        if self.item:
+            wI = self.item.w
+            lI = self.item.l
+        else:
+            wI = 0
+            lI = 0
+
+        if self.regions:
+            wA = self.regions[0].w
+            wB = self.regions[1].w
+            lA = self.regions[0].l
+            lB = self.regions[1].l
+        else:
+            wA = wB = lA = lB = 0
+
+        self.w = max(wI,wA)+wB
+        self.l = max(lI+lA,lB)
+
 
 class Segment(Region):
     """
@@ -242,3 +270,32 @@ class Segment(Region):
                 num_removed += srB.repair_sizes(wB,lB)
 
         return num_removed
+
+    
+    def trim(self):
+        """
+        Trim the region sizes.
+
+        Trim walks through the region tree and reduces the region sizes
+        to a minimum being able to hold the item and the subregions.
+        """
+        for sr in self.regions:
+            sr.trim()
+
+        if self.item:
+            wI = self.item.w
+            lI = self.item.l
+        else:
+            wI = 0
+            lI = 0
+
+        if self.regions:
+            wA = self.regions[0].w
+            wB = self.regions[1].w
+            lA = self.regions[0].l
+            lB = self.regions[1].l
+        else:
+            wA = wB = lA = lB = 0
+
+        self.w = max(wI+wA,wB)
+        self.l = max(lI,lA)+lB
