@@ -1,9 +1,12 @@
 #! /usr/bin/python
 # -*- coding: utf-8 -*-
 
-import pygena
+from __future__ import division
 import sys
 import math
+import pygena
+import copy
+import random
 
 class ItemType(object):
     def __init__(self, width, length, description=""):
@@ -48,8 +51,20 @@ class Region(object):
         self.regions = []
 
     def area(self):
-        return self.l*self.w
+        return self.l * self.w
 
+    def covered_area(self):
+        A = 0
+        if self.item:
+            A += self.item.w * self.item.l
+        for r in self.regions:
+            A += r.covered_area()
+
+        return A
+
+    def fillrate(self):
+        return self.covered_area() / self.area()
+    
     def fits(self,item):
 	return (item.w<=self.w and item.l<=self.l)
 
@@ -308,3 +323,57 @@ class Segment(Region):
 
         self.w = max(wI+wA,wB)
         self.l = max(lI,lA)+lB
+
+class RegionChromosome(BaseChromosome):
+    items = []
+    w = 0
+    l = 0
+    optimization = pygena.MINIMIZE
+    def __init__(self):
+        BaseChromosome.__init__(self)
+        self.region = None
+        self.items = copy.deepcopy(RegionChromosome.items)
+
+    def _random_rotate_items(self):
+        for item in self.items:
+            item.rotated = random.randint(0,1)==1
+        
+    def randomize(self):
+        self.region = Segment(w,l)
+        self._random_rotate_items()
+        self.region.populate(self.items)
+
+    def crossover(self,other):
+        # get crossover points
+        c1 = random.randint(0,len(self.items)-1)
+        c2 = random.randint(0,len(other.items)-1)
+        
+        # crossover needs to be performed on copied objects
+        sc = copy.deepcopy(self)
+        oc = copy.deepcopy(other)
+
+        rs1 = self.items[c1].location
+        rs2 = oc.items[c2].location
+        ro1 = sc.items[c1].location
+        ro2 = other.items[c2].location
+        
+        # swap the object contents
+        rs1.__dict__, rs1.__class__ = rs2.__dict__, rs2.__class__
+        ro2.__dict__, ro2.__class__ = ro1.__dict__, ro1.__class__
+        
+    def mutate(self,mutationRate):
+        for item in self.items:
+            if random.rand() < mutationRate:
+                item.rotate()
+
+    def repair(self):
+        self.fix_layout(self.items,self.w,self.l)
+        self.trim_length()
+
+    def evaluate(self):
+        self.score = self.l
+
+    def asString(self):
+        return 'l=%d, fillrate=%f' % (self.l, self.fillrate())
+        
+        
