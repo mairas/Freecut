@@ -341,6 +341,7 @@ class RegionChromosome(BaseChromosome):
     def randomize(self):
         self.region = Segment(w,l)
         self._random_rotate_items()
+        random.shuffle(self.items)
         self.region.populate(self.items)
 
     def crossover(self,other):
@@ -377,3 +378,8 @@ class RegionChromosome(BaseChromosome):
         return 'l=%d, fillrate=%f' % (self.l, self.fillrate())
         
         
+def optimize(items,W,verbose=False):
+    RegionChromosome.items = items
+    env = pygena.Population(RegionChromosome, maxgenerations=1000, optimum=1,
+                            crossover_rate=0.7, mutation_rate=0.01)
+    env.run()
