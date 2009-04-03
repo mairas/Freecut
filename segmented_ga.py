@@ -233,6 +233,36 @@ class Block(Region):
 
         return num_removed
 
+    def evaluate(self):
+        """
+        Evaluate the region.
+
+        Evaluate the region minimum width and length as well as used area
+        and fillrate.
+        """
+        minw = 0
+        minl = 0
+        area = 0
+
+        if self.item:
+            minw = self.item.w
+            minl = self.item.l
+            area = minw*minl
+
+        if self.regions:
+            wA,lA,aA,frA = self.regions[0].evaluate()
+            wB,lB,aB,frB = self.regions[1].evaluate()
+        else:
+            wA=lA=aA=frA=wB=lB=aB=frB=0
+
+        minw = minw + wB
+        minl = max(lB,minl+lA)
+        area += aA + aB
+        fillrate = area/(minw*minl)
+
+        return (minw,minl,area,fillrate)
+
+    
     def trim(self):
         """
         Trim the region sizes.
@@ -324,6 +354,37 @@ class Segment(Region):
         return num_removed
 
     
+    def evaluate(self):
+        """
+        Evaluate the region.
+
+        Evaluate the region minimum width and length as well as used area
+        and fillrate.
+        """
+        minw = 0
+        minl = 0
+        area = 0
+
+        if self.item:
+            minw = self.item.w
+            minl = self.item.l
+            area = minw*minl
+
+        if self.regions:
+            wA,lA,aA,frA = self.regions[0].evaluate()
+            wB,lB,aB,frB = self.regions[1].evaluate()
+        else:
+            wA=lA=aA=frA=wB=lB=aB=frB=0
+
+        minl = minl + lB
+        minw = max(wB,minw+wA)
+        area += aA + aB
+        fillrate = area/(minw*minl)
+
+        return (minw,minl,area,fillrate)
+
+
+
     def trim(self):
         """
         Trim the region sizes.
