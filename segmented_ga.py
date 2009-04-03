@@ -137,8 +137,6 @@ class Region(object):
         assert(len(l)==0) # every piece should fit now
         print "3",self.num_items(),len(items),self.w,self.l
 	self.remove_duplicates({})
-        print "4",self.num_items(),len(items),self.w,self.l
-        self.trim_length()
         print "------"
         assert(self.l>1000)
 
@@ -159,15 +157,6 @@ class Region(object):
 	    num_removed += sr.remove_duplicates(seen)
 
         return num_removed
-
-
-    def trim_length(self):
-        """
-        Trim region lengths.
-        """
-        w = self.w
-        self.trim()
-        self.w = w
 
     
 class Block(Region):
@@ -258,38 +247,13 @@ class Block(Region):
         minw = minw + wB
         minl = max(lB,minl+lA)
         area += aA + aB
-        fillrate = area/(minw*minl)
+        if minw==0 and minl==0:
+            fillrate = 0
+        else:
+            fillrate = area/(minw*minl)
 
         return (minw,minl,area,fillrate)
-
     
-    def trim(self):
-        """
-        Trim the region sizes.
-
-        Trim walks through the region tree and reduces the region sizes
-        to a minimum being able to hold the item and the subregions.
-        """
-        for sr in self.regions:
-            sr.trim()
-
-        if self.item:
-            wI = self.item.w
-            lI = self.item.l
-        else:
-            wI = 0
-            lI = 0
-
-        if self.regions:
-            wA = self.regions[0].w
-            wB = self.regions[1].w
-            lA = self.regions[0].l
-            lB = self.regions[1].l
-        else:
-            wA = wB = lA = lB = 0
-
-        self.w = max(wI,wA)+wB
-        self.l = max(lI+lA,lB)
 
         
 class Segment(Region):
@@ -384,35 +348,6 @@ class Segment(Region):
         return (minw,minl,area,fillrate)
 
 
-
-    def trim(self):
-        """
-        Trim the region sizes.
-
-        Trim walks through the region tree and reduces the region sizes
-        to a minimum being able to hold the item and the subregions.
-        """
-        for sr in self.regions:
-            sr.trim()
-
-        if self.item:
-            wI = self.item.w
-            lI = self.item.l
-        else:
-            wI = 0
-            lI = 0
-
-        if self.regions:
-            wA = self.regions[0].w
-            wB = self.regions[1].w
-            lA = self.regions[0].l
-            lB = self.regions[1].l
-        else:
-            wA = wB = lA = lB = 0
-
-        self.w = max(wI+wA,wB)
-        self.l = max(lI,lA)+lB
-
 class RegionChromosome(pygena.BaseChromosome):
     items = []
     W = 0
@@ -423,7 +358,6 @@ class RegionChromosome(pygena.BaseChromosome):
         pygena.BaseChromosome.__init__(self)
         self.items = copy.deepcopy(RegionChromosome.items)
         self.randomize()
-        self.region.trim_length()
         self.evaluate()
         
 
@@ -436,7 +370,6 @@ class RegionChromosome(pygena.BaseChromosome):
         self._random_rotate_items()
         random.shuffle(self.items)
         self.region.populate(self.items[:])
-        self.region.trim_length()
 
     def crossover(self,other):
         """

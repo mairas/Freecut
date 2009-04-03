@@ -72,30 +72,6 @@ class TestSequenceFunctions(unittest.TestCase):
         n = s.repair_sizes(2000,4000)
         #self.assertEqual(n,1)
 
-    def test_trim_segment(self):
-        s = Segment(2000,4000)
-        s.populate([i1,i2])
-        s.trim()
-        self.assertEqual((s.w,s.l),(200,1500))
-
-    def test_trim_block(self):
-        s = Block(2000,4000)
-        s.populate([i1,i2])
-        s.trim()
-        self.assertEqual((s.w,s.l),(100,3000))
-
-    def test_trim_length_segment(self):
-        s = Segment(2000,4000)
-        s.populate([i1,i2])
-        s.trim_length()
-        self.assertEqual((s.w,s.l),(2000,1500))
-
-    def test_trim_length_block(self):
-        s = Block(2000,4000)
-        s.populate([i1,i2])
-        s.trim_length()
-        self.assertEqual((s.w,s.l),(2000,3000))
-
     def test_chromosome_init(self):
         RegionChromosome.items = items
         RegionChromosome.W = 2000
