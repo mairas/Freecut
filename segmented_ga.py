@@ -9,9 +9,10 @@ import copy
 import random
 
 class ItemType(object):
-    def __init__(self, width, length, description=""):
+    def __init__(self, width, length, description="", rotatable=False):
         self.w = width
         self.l = length
+        self.rotatable = rotatable
         self.description = description
 
     def __repr__(self):
@@ -31,6 +32,9 @@ class Item(object):
 
     l = property(lambda self: self.type.l)
     w = property(lambda self: self.type.w)
+
+    def area(self):
+        return self.w*self.l
 
     def __repr__(self):
         return "Item(type_=%r,rotated=%d)" % (self.type,self.rotated)
@@ -53,6 +57,14 @@ class Region(object):
     def area(self):
         return self.l * self.w
 
+    def num_items(self):
+        n = 0
+        if self.item:
+            n += 1
+        for r in self.regions:
+            n += r.num_items()
+        return n
+
     def covered_area(self):
         A = 0
         if self.item:
@@ -68,7 +80,7 @@ class Region(object):
     def fits(self,item):
 	return (item.w<=self.w and item.l<=self.l)
 
-    def populate(self,items):
+    def populate(self,items,item_min_dim=0):
 	"""
 	Populate a region using a list of items.
 	Take a list of items and fill the region with items.
@@ -76,6 +88,9 @@ class Region(object):
 	Returns a list of items not fitted to the region.
 	"""
 
+        #FIXME: only iterate through the regions if they're larger than
+        # the minimum piece dimensions
+        
 	# only place the item if the region is empty
 	if self.item == None and not self.regions:
 	    for item in items:
@@ -84,8 +99,10 @@ class Region(object):
 		    items.remove(item)
 		    break
 	if items:
-	    for sr in self.regions:
-		items = sr.populate(items)
+            regs = [r for r in self.regions \
+                           if r.w>=item_min_dim and r.l>=item_min_dim]
+	    for sr in regs:
+		items = sr.populate(items,item_min_dim)
 		if not items: break
 		
 	return items
@@ -105,16 +122,25 @@ class Region(object):
                 return False
         return True
 
-    def fix_layout(self,items,w,l):
+    def fix_layout(self,items,w,l,item_min_dim=0):
 	"""
 	Fix the layout after crossover and mutation operations.
 	"""
 	# FIXME: it's a bit silly to first fill the layout with duplicates
 	#   	 and then remove them again... Should first remove the genuine
 	#	 duplicates and get a list of placed items
-	self.populate(items)
-	self.remove_duplicates({})
+        print "1",self.num_items(),len(items),self.w,self.l
 	self.repair_sizes(w,l)
+        print "2",self.num_items(),len(items),self.w,self.l
+	l = self.populate(items[:],item_min_dim)
+        print l
+        assert(len(l)==0) # every piece should fit now
+        print "3",self.num_items(),len(items),self.w,self.l
+	self.remove_duplicates({})
+        print "4",self.num_items(),len(items),self.w,self.l
+        self.trim_length()
+        print "------"
+        assert(self.l>1000)
 
     def remove_duplicates(self,seen):
         """
@@ -175,13 +201,15 @@ class Block(Region):
 
     def repair_sizes(self,w,l):
 	"""
-	Walk through the region tree and make sure all regions fit
-	the available space.
+	Walk through the region tree and reset the region sizes according
+        to available region size. 
 
         Returns the amount of removed regions (not including subregions).
 	"""
         num_removed = 0
-        
+
+        self.w = w
+        self.l = l
 	if not self.verify_item_size(w,l):
             num_removed += 1
 
@@ -324,27 +352,37 @@ class Segment(Region):
         self.w = max(wI+wA,wB)
         self.l = max(lI,lA)+lB
 
-class RegionChromosome(BaseChromosome):
+class RegionChromosome(pygena.BaseChromosome):
     items = []
-    w = 0
-    l = 0
+    W = 0
+    L = 0
+    item_min_dim = 0
     optimization = pygena.MINIMIZE
     def __init__(self):
-        BaseChromosome.__init__(self)
-        self.region = None
+        pygena.BaseChromosome.__init__(self)
         self.items = copy.deepcopy(RegionChromosome.items)
+        self.randomize()
+        self.region.trim_length()
+        self.evaluate()
+        
 
     def _random_rotate_items(self):
         for item in self.items:
             item.rotated = random.randint(0,1)==1
         
     def randomize(self):
-        self.region = Segment(w,l)
+        self.region = Segment(self.W,self.L)
         self._random_rotate_items()
         random.shuffle(self.items)
-        self.region.populate(self.items)
+        self.region.populate(self.items[:])
+        self.region.trim_length()
 
     def crossover(self,other):
+        """
+        perform crossover operation on two region trees.
+        return two copies after the operation without repairing them.
+        """
+        
         # get crossover points
         c1 = random.randint(0,len(self.items)-1)
         c2 = random.randint(0,len(other.items)-1)
@@ -353,33 +391,48 @@ class RegionChromosome(BaseChromosome):
         sc = copy.deepcopy(self)
         oc = copy.deepcopy(other)
 
-        rs1 = self.items[c1].location
-        rs2 = oc.items[c2].location
-        ro1 = sc.items[c1].location
-        ro2 = other.items[c2].location
+        reg_1 = sc.items[c1].location
+        reg_2 = oc.items[c2].location
         
         # swap the object contents
-        rs1.__dict__, rs1.__class__ = rs2.__dict__, rs2.__class__
-        ro2.__dict__, ro2.__class__ = ro1.__dict__, ro1.__class__
+        reg_2.__dict__, reg_2.__class__, \
+            reg_1.__dict__, reg_1.__class__ = \
+            reg_1.__dict__, reg_1.__class__, \
+            reg_2.__dict__, reg_2.__class__
+
+        # repair the offspring
+        sc.repair()
+        oc.repair()
+        
+        # return the object copies
+        return (sc,oc)
         
     def mutate(self,mutationRate):
+        mutated = False
         for item in self.items:
-            if random.rand() < mutationRate:
+            if random.random() < mutationRate/len(self.items):
                 item.rotate()
+                mutated = True
+        if mutated:
+            self.repair()
 
     def repair(self):
-        self.fix_layout(self.items,self.w,self.l)
-        self.trim_length()
+        self.region.fix_layout(self.items,self.W,self.L,self.item_min_dim)
+        self.evaluate()
 
     def evaluate(self):
-        self.score = self.l
+        self.score = self.region.l
 
     def asString(self):
-        return 'l=%d, fillrate=%f' % (self.l, self.fillrate())
+        return 'l=%d, fillrate=%f' % (self.region.l, self.region.fillrate())
         
         
 def optimize(items,W,verbose=False):
     RegionChromosome.items = items
-    env = pygena.Population(RegionChromosome, maxgenerations=1000, optimum=1,
+    RegionChromosome.W = W
+    RegionChromosome.L = 1e6 # any large value should do
+    RegionChromosome.item_min_dim = \
+        min([i.w for i in items]+[i.l for i in items])
+    env = pygena.Population(RegionChromosome, maxgenerations=1000, optimum=0,
                             crossover_rate=0.7, mutation_rate=0.01)
     env.run()

@@ -96,6 +96,49 @@ class TestSequenceFunctions(unittest.TestCase):
         s.trim_length()
         self.assertEqual((s.w,s.l),(2000,3000))
 
+    def test_chromosome_init(self):
+        RegionChromosome.items = items
+        RegionChromosome.W = 2000
+        RegionChromosome.L = 10000
+
+        itemarea = sum([it.area() for it in items])
+
+        rc = RegionChromosome()
+        self.assertEqual(rc.region.covered_area(),itemarea)
+
+    def test_chromosome_mutate(self):
+        RegionChromosome.items = items
+        RegionChromosome.W = 2000
+        RegionChromosome.L = 10000
+
+        itemarea = sum([it.area() for it in items])
+
+        rc = RegionChromosome()
+
+        rc.mutate(1.)
+        rc.repair()
+        self.assertEqual(rc.region.covered_area(),itemarea)
+
+
+    def test_chromosome_crossover(self):
+        RegionChromosome.items = items
+        RegionChromosome.W = 2000
+        RegionChromosome.L = 10000
+
+        itemarea = sum([it.area() for it in items])
+
+        rc1 = RegionChromosome()
+        rc2 = RegionChromosome()
+
+        self.assertEqual(rc1.region.covered_area(),itemarea)
+        self.assertEqual(rc2.region.covered_area(),itemarea)
+
+        
+        co1,co2 = rc1.crossover(rc2)
+        
+        self.assert_(co1.region.covered_area()>0)
+        self.assert_(co2.region.covered_area()>0)
+
         
 if __name__ == '__main__':
     unittest.main()

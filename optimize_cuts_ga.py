@@ -28,9 +28,9 @@ def input_items(filename):
     
     for line in lines:
         l,w,n,r,s = line
-        typ = segmented_ga.ItemType(w,l,s)
+        typ = segmented_ga.ItemType(w,l,s,r)
         for i in range(n):
-            items.append(Item(typ,rotatable=r))
+            items.append(segmented_ga.Item(typ))
                 
     return items
 
@@ -58,7 +58,7 @@ if __name__=='__main__':
     #parser.add_option("-o","--output",dest="output",
     #                  help="the output file name")
     parser.add_option("-t","--trim",dest="trim",type="int",
-                      help="the trim amount")
+                      help="the trim amount", default=0.)
     parser.add_option("-W","--width",dest="width",type="int",
                       help="the plate width")
     
@@ -66,15 +66,15 @@ if __name__=='__main__':
     W = options.width
     trim = options.trim
 
-    items = input_items(args[0],options.trim)
+    items = input_items(args[0])
 
-    add_trim(items)
+    add_trim(items,trim)
     
     L,items = segmented_ga.optimize(items,W+trim,verbose=True)
 
     # remove the trim from the pieces
     L -= trim
-    remove_trim(items)
+    remove_trim(items,trim)
     
     plot_layout(items,L,W,show=True)
     
