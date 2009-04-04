@@ -30,8 +30,8 @@ class Item(object):
     def rotate(self):
         self.rotated = not self.rotated
 
-    l = property(lambda self: self.type.l)
-    w = property(lambda self: self.type.w)
+    l = property(lambda self: (self.type.l,self.type.w)[self.rotated])
+    w = property(lambda self: (self.type.w,self.type.l)[self.rotated])
 
     def area(self):
         return self.w*self.l
@@ -54,6 +54,14 @@ class Region(object):
         self.item = None
         self.regions = []
 
+    def dump(self,indent=""):
+        print indent + str(self)
+        indent = indent + "  "
+        if self.item:
+            print indent + str(self.item)
+        for sr in self.regions:
+            sr.dump(indent)
+        
     def area(self):
         return self.l * self.w
 
@@ -65,6 +73,7 @@ class Region(object):
             n += r.num_items()
         return n
 
+    
     def covered_area(self):
         A = 0
         if self.item:
@@ -88,9 +97,6 @@ class Region(object):
 	Returns a list of items not fitted to the region.
 	"""
 
-        #FIXME: only iterate through the regions if they're larger than
-        # the minimum piece dimensions
-        
 	# only place the item if the region is empty
 	if self.item == None and not self.regions:
 	    for item in items:
@@ -104,7 +110,7 @@ class Region(object):
 	    for sr in regs:
 		items = sr.populate(items,item_min_dim)
 		if not items: break
-		
+
 	return items
 
     def clear_region(self):
@@ -129,16 +135,31 @@ class Region(object):
 	# FIXME: it's a bit silly to first fill the layout with duplicates
 	#   	 and then remove them again... Should first remove the genuine
 	#	 duplicates and get a list of placed items
-        print "1",self.num_items(),len(items),self.w,self.l
-	self.repair_sizes(w,l)
-        print "2",self.num_items(),len(items),self.w,self.l
-	l = self.populate(items[:],item_min_dim)
-        print l
-        assert(len(l)==0) # every piece should fit now
-        print "3",self.num_items(),len(items),self.w,self.l
+        #print "1",self.num_items(),len(items),self.w,self.l
+            
+        #self.dump()
+        #print "----"
+	self.repair(w,l)
+        #self.dump()
+        #print "----"
+        self.expand(w,l)
+        #self.dump()
+
+        #print "2",self.num_items(),len(items),self.w,self.l
+
+	unplaced = self.populate(items[:],item_min_dim)
+        #print unplaced
+        #print type(self)
+        assert(len(unplaced)==0) # every piece should fit now
+
+        #print "3",self.num_items(),len(items),self.w,self.l
+
 	self.remove_duplicates({})
-        print "------"
-        assert(self.l>1000)
+
+        #print "4",self.num_items(),len(items),self.w,self.l
+        #print "------"
+
+        self.repair(w,l)
 
     def remove_duplicates(self,seen):
         """
@@ -158,6 +179,37 @@ class Region(object):
 
         return num_removed
 
+    def evaluate(self):
+        """
+        Evaluate the region.
+
+        Evaluate the region minimum width and length as well as used area
+        and fillrate.
+        """
+        wI = 0
+        lI = 0
+        aI = 0
+
+        if self.item:
+            wI = self.item.w
+            lI = self.item.l
+            aI = wI*lI
+
+        wA=lA=aA=frA=wB=lB=aB=frB=0
+        if self.regions:
+            wA,lA,aA,frA = self.regions[0].evaluate()
+            wB,lB,aB,frB = self.regions[1].evaluate()
+
+        minw,minl = self.min_dims(wI,lI,wA,lA,wB,lB)
+        area = aI + aA + aB
+
+        if minw==0 or minl==0:
+            fillrate = 0
+        else:
+            fillrate = area/(minw*minl)
+
+        return (minw,minl,area,fillrate)
+
     
 class Block(Region):
     """
@@ -168,6 +220,10 @@ class Block(Region):
     | I | A |
     +---+---+
     """
+    
+    def __repr__(self):
+        return "Block(%d,%d)" % (self.w,self.l)
+
     def split(self,item):
         lA = self.l-item.l
         wA = item.w
@@ -188,17 +244,19 @@ class Block(Region):
 	self.item = None
 	self.regions[0].l = self.l
 
-    def repair_sizes(self,w,l):
+    def repair(self,w,l):
 	"""
 	Walk through the region tree and reset the region sizes according
-        to available region size. 
+        to the required space.
+
+        w,l    maximum dimensions of the region
 
         Returns the amount of removed regions (not including subregions).
 	"""
         num_removed = 0
+        wI = lI = 0
 
-        self.w = w
-        self.l = l
+        # the item must fit within the maximum dimensions
 	if not self.verify_item_size(w,l):
             num_removed += 1
 
@@ -207,53 +265,68 @@ class Block(Region):
             srB = self.regions[1]
 
             if self.item:
+                wI = self.item.w
+                lI = self.item.l
+                # item defines the region split
                 new_wA = w
-                new_lA = l-self.item.l
-                new_wB = w-self.item.w
+                new_lA = l-lI
+                new_wB = w-wI
                 new_lB = l
 
-                num_removed += srA.repair_sizes(new_wA,new_lA)
-                num_removed += srB.repair_sizes(new_wB,new_lB)
+                num_removed += srA.repair(new_wA,new_lA)
+                num_removed += srB.repair(new_wB,new_lB)
             else:
-                num_removed += srA.repair_sizes(w,l)
+                wI = lI = 0
+                num_removed += srA.repair(w,l)
                 wB = w-srA.w
                 lB = l
-                num_removed += srB.repair_sizes(wB,lB)
+                num_removed += srB.repair(wB,lB)
 
+                # if both subregions are empty, clear the region
+                if not srA.item and not srA.regions and \
+                   not srB.item and not srB.regions:
+                    self.clear_region()
+
+        # finally, trim the current region size
+                    
+        if self.regions:
+            wA = srA.w
+            wB = srB.w
+            lA = srA.l
+            lB = srB.l
+        else:
+            wA = wB = lA = lB = 0
+                
+        self.w = max(wI,wA)+wB
+        self.l = max(lI+lA,lB)
+                
         return num_removed
 
-    def evaluate(self):
-        """
-        Evaluate the region.
-
-        Evaluate the region minimum width and length as well as used area
-        and fillrate.
-        """
-        minw = 0
-        minl = 0
-        area = 0
-
-        if self.item:
-            minw = self.item.w
-            minl = self.item.l
-            area = minw*minl
+    def expand(self,w,l):
+        "Expand the region to consume the given width and length"
+        
+        self.w = w
+        self.l = l
 
         if self.regions:
-            wA,lA,aA,frA = self.regions[0].evaluate()
-            wB,lB,aB,frB = self.regions[1].evaluate()
-        else:
-            wA=lA=aA=frA=wB=lB=aB=frB=0
+            srA = self.regions[0]
+            srB = self.regions[1]
+            
+            if self.item:
+                wI = self.item.w
+                lI = self.item.l
+            else:
+                wI = srA.w
+                lI = 0
+            srA.expand(wI,l-lI)
+            srB.expand(w-wI,l)
+        
+    def min_dims(self,wI,lI,wA,wB,lA,lB):
+        "Return minimal dimensions enclosing the item and the subregions."
+        minw = wI + wB
+        minl = max(lB,lI+lA)
+        return minw,minl
 
-        minw = minw + wB
-        minl = max(lB,minl+lA)
-        area += aA + aB
-        if minw==0 and minl==0:
-            fillrate = 0
-        else:
-            fillrate = area/(minw*minl)
-
-        return (minw,minl,area,fillrate)
-    
 
         
 class Segment(Region):
@@ -265,6 +338,10 @@ class Segment(Region):
     | I |   |
     +---+---+
     """
+
+    def __repr__(self):
+        return "Segment(%d,%d)" % (self.w,self.l)
+
     def split(self,item):
         lA = item.l
         wA = self.w-item.w
@@ -285,15 +362,20 @@ class Segment(Region):
 	self.item = None
 	self.regions[0].w = self.w
 
-    def repair_sizes(self,w,l):
+    def repair(self,w,l):
 	"""
-	Walk through the region tree and make sure all regions fit
-	the available space.
+	Walk through the region tree and reset the region sizes according
+        to the required space. Also, fix dead-end Segments (Segments
+        with only Blocks as subregions).
+
+        w,l    maximum dimensions of the region
 
         Returns the amount of removed regions (not including subregions).
         """
         num_removed = 0
-
+        wI = lI = 0
+        
+        # the item must fit within the maximum dimensions
         if not self.verify_item_size(w,l):
             num_removed += 1
 
@@ -301,51 +383,73 @@ class Segment(Region):
             srA = self.regions[0]
             srB = self.regions[1]
 
-            if self.item:
-                new_wA = w-self.item.w
-                new_lA = self.item.l
-                new_wB = w
-                new_lB = l-self.item.l
+            # clear dead-ends
+            if isinstance(srB,Block):
+                srB = self.regions[1] = Segment(srB.w,srB.l)
+                num_removed += 1
                 
-                num_removed += srA.repair_sizes(new_wA,new_lA)
-                num_removed += srB.repair_sizes(new_wB,new_lB)
+            if self.item:
+                wI = self.item.w
+                lI = self.item.l
+                # item defines the region split
+                new_wA = w-wI
+                new_lA = lI
+                new_wB = w
+                new_lB = l-lI
+                
+                num_removed += srA.repair(new_wA,new_lA)
+                num_removed += srB.repair(new_wB,new_lB)
             else:
-                num_removed += srA.repair_sizes(w,l)
+                wI = lI = 0
+                num_removed += srA.repair(w,l)
                 wB = w
                 lB = l-srA.l
-                num_removed += srB.repair_sizes(wB,lB)
+                num_removed += srB.repair(wB,lB)
+
+                # if both subregions are empty, clear the region
+                if not srA.item and not srA.regions and \
+                   not srB.item and not srB.regions:
+                    self.clear_region()
+
+        # finally, trim the current region size
+                    
+        if self.regions:
+            wA = srA.w
+            wB = srB.w
+            lA = srA.l
+            lB = srB.l
+        else:
+            wA = wB = lA = lB = 0
+        self.w = max(wI+wA,wB)
+        self.l = max(lI,lA)+lB
 
         return num_removed
 
-    
-    def evaluate(self):
-        """
-        Evaluate the region.
-
-        Evaluate the region minimum width and length as well as used area
-        and fillrate.
-        """
-        minw = 0
-        minl = 0
-        area = 0
-
-        if self.item:
-            minw = self.item.w
-            minl = self.item.l
-            area = minw*minl
+    def expand(self,w,l):
+        "Expand the region to consume the given width and length"
+        
+        self.w = w
+        self.l = l
 
         if self.regions:
-            wA,lA,aA,frA = self.regions[0].evaluate()
-            wB,lB,aB,frB = self.regions[1].evaluate()
-        else:
-            wA=lA=aA=frA=wB=lB=aB=frB=0
+            srA = self.regions[0]
+            srB = self.regions[1]
+            
+            if self.item:
+                wI = self.item.w
+                lI = self.item.l
+            else:
+                wI = 0
+                lI = srA.l
+            srA.expand(w-wI,lI)
+            srB.expand(w,l-lI)
 
-        minl = minl + lB
-        minw = max(wB,minw+wA)
-        area += aA + aB
-        fillrate = area/(minw*minl)
 
-        return (minw,minl,area,fillrate)
+    def min_dims(self,wI,lI,wA,wB,lA,lB):
+        "Return minimal dimensions enclosing the item and the subregions."
+        minl = lI + lB
+        minw = max(wB,wI+wA)
+        return minw,minl
 
 
 class RegionChromosome(pygena.BaseChromosome):
@@ -357,6 +461,7 @@ class RegionChromosome(pygena.BaseChromosome):
     def __init__(self):
         pygena.BaseChromosome.__init__(self)
         self.items = copy.deepcopy(RegionChromosome.items)
+        self.region = None
         self.randomize()
         self.evaluate()
         
@@ -376,23 +481,31 @@ class RegionChromosome(pygena.BaseChromosome):
         perform crossover operation on two region trees.
         return two copies after the operation without repairing them.
         """
-        
-        # get crossover points
-        c1 = random.randint(0,len(self.items)-1)
-        c2 = random.randint(0,len(other.items)-1)
-        
-        # crossover needs to be performed on copied objects
-        sc = copy.deepcopy(self)
-        oc = copy.deepcopy(other)
 
-        reg_1 = sc.items[c1].location
-        reg_2 = oc.items[c2].location
+        valid = False
+
+        while not valid:
         
-        # swap the object contents
-        reg_2.__dict__, reg_2.__class__, \
-            reg_1.__dict__, reg_1.__class__ = \
-            reg_1.__dict__, reg_1.__class__, \
-            reg_2.__dict__, reg_2.__class__
+            # get crossover points
+            c1 = random.randint(0,len(self.items)-1)
+            c2 = random.randint(0,len(other.items)-1)
+        
+            # crossover needs to be performed on copied objects
+            sc = copy.deepcopy(self)
+            oc = copy.deepcopy(other)
+
+            reg_1 = sc.items[c1].location
+            reg_2 = oc.items[c2].location
+        
+            # swap the object contents
+            reg_2.__dict__, reg_2.__class__, \
+                reg_1.__dict__, reg_1.__class__ = \
+                reg_1.__dict__, reg_1.__class__, \
+                reg_2.__dict__, reg_2.__class__
+
+            if not isinstance(sc.region,Block) \
+                    and not isinstance(oc.region,Block):
+                valid = True
 
         # repair the offspring
         sc.repair()
@@ -415,7 +528,8 @@ class RegionChromosome(pygena.BaseChromosome):
         self.evaluate()
 
     def evaluate(self):
-        self.score = self.region.l
+        w,l,a,fr = self.region.evaluate()
+        self.score = l
 
     def asString(self):
         return 'l=%d, fillrate=%f' % (self.region.l, self.region.fillrate())
@@ -427,6 +541,6 @@ def optimize(items,W,verbose=False):
     RegionChromosome.L = 1e6 # any large value should do
     RegionChromosome.item_min_dim = \
         min([i.w for i in items]+[i.l for i in items])
-    env = pygena.Population(RegionChromosome, maxgenerations=1000, optimum=0,
+    env = pygena.Population(RegionChromosome, maxgenerations=50, optimum=0,
                             crossover_rate=0.7, mutation_rate=0.01)
     env.run()
