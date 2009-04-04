@@ -4,6 +4,7 @@ import sys
 import segmented_ga
 from optparse import OptionParser
 from pyparsing import *
+from itemplot import *
 
 def parse_input(f):
     # define the grammar

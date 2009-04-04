@@ -24,6 +24,8 @@ class Item(object):
         self.rotated = rotated
         # location within the region tree
         self.location = None
+        self.x = None
+        self.y = None
 	# create a unique identifier for later matching of duplicates
 	self.id = id(self)
 
@@ -40,7 +42,7 @@ class Item(object):
         return "Item(type_=%r,rotated=%d)" % (self.type,self.rotated)
     
     def __str__(self):
-        return "Item (%d,%d) of type %r" % (self.w,self.l,self.type)
+        return "Item (%d,%d,%s) of type %r" % (self.w,self.l,('F','T')[self.rotated],self.type)
 
 class Region(object):
     """
@@ -54,6 +56,20 @@ class Region(object):
         self.item = None
         self.regions = []
 
+    def _walk_regions(self,d):
+        if self.item:
+            # make sure that the item knows its location
+            self.item.location = self
+
+            d[self.item] = True
+        for r in self.regions:
+            r._walk_regions(d)
+        
+    def get_items(self):
+        d = {}
+        self._walk_regions(d)
+        return d.keys()
+        
     def dump(self,indent=""):
         print indent + str(self)
         indent = indent + "  "
@@ -227,14 +243,22 @@ class Block(Region):
 
     def calculate_item_coordinates(self,x=0,y=0):
         wI = lI = 0
-        if self.item:
-            wI = self.item.w
-            lI = self.item.l
+        if self.regions:
+            srA = self.regions[0]
+            srB = self.regions[1]
             
-            self.item.x = x
-            self.item.y = y
-        self.region[0].calculate_item_coordinates(lI,0)
-        self.region[1].calculate_item_coordinates(0,wI)
+            if self.item:
+                wI = self.item.w
+                lI = self.item.l
+            
+                self.item.x = x
+                self.item.y = y
+            else:
+                wI = srA.w
+                lI = 0
+
+            self.regions[0].calculate_item_coordinates(x+lI,y)
+            self.regions[1].calculate_item_coordinates(x,y+wI)
         
     def split(self,item):
         lA = self.l-item.l
@@ -280,13 +304,14 @@ class Block(Region):
                 wI = self.item.w
                 lI = self.item.l
                 # item defines the region split
-                new_wA = w
+                new_wA = wI
                 new_lA = l-lI
                 new_wB = w-wI
                 new_lB = l
 
                 num_removed += srA.repair(new_wA,new_lA)
                 num_removed += srB.repair(new_wB,new_lB)
+
             else:
                 wI = lI = 0
                 num_removed += srA.repair(w,l)
@@ -298,6 +323,13 @@ class Block(Region):
                 if not srA.item and not srA.regions and \
                    not srB.item and not srB.regions:
                     self.clear_region()
+
+                # more cleanup
+                if not srA.item and not srB.item:
+                    if not srA.regions:
+                        self.regions = srB.regions
+                    elif not srB.regions:
+                        self.regions = srA.regions
 
         # finally, trim the current region size
                     
@@ -356,14 +388,22 @@ class Segment(Region):
 
     def calculate_item_coordinates(self,x=0,y=0):
         wI = lI = 0
-        if self.item:
-            wI = self.item.w
-            lI = self.item.l
+        if self.regions:
+            srA = self.regions[0]
+            srB = self.regions[1]
+
+            if self.item:
+                wI = self.item.w
+                lI = self.item.l
             
-            self.item.x = x
-            self.item.y = y
-        self.region[0].calculate_item_coordinates(lI,0)
-        self.region[1].calculate_item_coordinates(0,wI)
+                self.item.x = x
+                self.item.y = y
+            else:
+                wI = 0
+                lI = srA.l
+                
+            self.regions[0].calculate_item_coordinates(x,y+wI)
+            self.regions[1].calculate_item_coordinates(x+lI,y)
         
     def split(self,item):
         lA = item.l
@@ -406,10 +446,11 @@ class Segment(Region):
             srA = self.regions[0]
             srB = self.regions[1]
 
-            # clear dead-ends
+            # wrap dead-ends to segments
             if isinstance(srB,Block):
-                srB = self.regions[1] = Segment(srB.w,srB.l)
-                num_removed += 1
+                s = Segment(srB.w,srB.l)
+                s.regions = [srB, Segment(0,0)]
+                srB = self.regions[1] = s
                 
             if self.item:
                 wI = self.item.w
@@ -422,6 +463,7 @@ class Segment(Region):
                 
                 num_removed += srA.repair(new_wA,new_lA)
                 num_removed += srB.repair(new_wB,new_lB)
+
             else:
                 wI = lI = 0
                 num_removed += srA.repair(w,l)
@@ -433,6 +475,11 @@ class Segment(Region):
                 if not srA.item and not srA.regions and \
                    not srB.item and not srB.regions:
                     self.clear_region()
+
+                # more cleanup
+                if not srA.item and not srB.item:
+                    if not srA.regions:
+                        self.regions = srB.regions
 
         # finally, trim the current region size
                     
@@ -486,17 +533,18 @@ class RegionChromosome(pygena.BaseChromosome):
         self.items = copy.deepcopy(RegionChromosome.items)
         self.region = None
         self.randomize()
-        self.evaluate()
+        self.repair()
         
 
     def _random_rotate_items(self):
         for item in self.items:
-            item.rotated = random.randint(0,1)==1
+            if random.randint(0,1):
+                item.rotate()
         
     def randomize(self):
         self.region = Segment(self.W,self.L)
         self._random_rotate_items()
-        random.shuffle(self.items)
+        #random.shuffle(self.items)
         self.region.populate(self.items[:])
 
     def crossover(self,other):
@@ -507,6 +555,8 @@ class RegionChromosome(pygena.BaseChromosome):
 
         valid = False
 
+        self.items = self.region.get_items()
+        other.items = other.region.get_items()
         while not valid:
         
             # get crossover points
@@ -537,11 +587,16 @@ class RegionChromosome(pygena.BaseChromosome):
         # return the object copies
         return (sc,oc)
         
-    def mutate(self,mutationRate):
+    def mutate(self,mutation_rate):
         mutated = False
-        for item in self.items:
-            if random.random() < mutationRate/len(self.items):
-                item.rotate()
+        items = self.region.get_items()
+        for item in items:
+            if random.random() < mutation_rate/len(items):
+                if random.random()<0.5:
+                    item.rotate()
+                else:
+                    assert(item.location.regions)
+                    item.location.drop_item()
                 mutated = True
         if mutated:
             self.repair()
@@ -551,22 +606,27 @@ class RegionChromosome(pygena.BaseChromosome):
         self.evaluate()
 
     def evaluate(self):
-        w,l,a,fr = self.region.evaluate()
-        self.score = l
+        self.score = self.region.l
 
     def asString(self):
         return 'l=%d, fillrate=%f' % (self.region.l, self.region.fillrate())
         
         
 def optimize(items,W,verbose=False):
+    items.sort(key=lambda x: x.area(), reverse=True)
     RegionChromosome.items = items
     RegionChromosome.W = W
     RegionChromosome.L = 1e6 # any large value should do
     RegionChromosome.item_min_dim = \
         min([i.w for i in items]+[i.l for i in items])
-    env = pygena.Population(RegionChromosome, maxgenerations=50, optimum=0,
-                            crossover_rate=0.7, mutation_rate=0.01)
+    env = pygena.Population(RegionChromosome, maxgenerations=10, optimum=0,
+                            crossover_rate=0.7, mutation_rate=0.2)
     best = env.run()
     best.region.calculate_item_coordinates()
+    output_items = best.region.get_items()
 
-    return best.regin.l,best.items
+    print "output_items:", len(output_items)
+
+    best.region.dump()
+    
+    return best.region.l,output_items
