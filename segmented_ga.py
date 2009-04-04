@@ -85,6 +85,7 @@ class Region(object):
 
     def fillrate(self):
         return self.covered_area() / self.area()
+
     
     def fits(self,item):
 	return (item.w<=self.w and item.l<=self.l)
@@ -224,6 +225,17 @@ class Block(Region):
     def __repr__(self):
         return "Block(%d,%d)" % (self.w,self.l)
 
+    def calculate_item_coordinates(self,x=0,y=0):
+        wI = lI = 0
+        if self.item:
+            wI = self.item.w
+            lI = self.item.l
+            
+            self.item.x = x
+            self.item.y = y
+        self.region[0].calculate_item_coordinates(lI,0)
+        self.region[1].calculate_item_coordinates(0,wI)
+        
     def split(self,item):
         lA = self.l-item.l
         wA = item.w
@@ -342,6 +354,17 @@ class Segment(Region):
     def __repr__(self):
         return "Segment(%d,%d)" % (self.w,self.l)
 
+    def calculate_item_coordinates(self,x=0,y=0):
+        wI = lI = 0
+        if self.item:
+            wI = self.item.w
+            lI = self.item.l
+            
+            self.item.x = x
+            self.item.y = y
+        self.region[0].calculate_item_coordinates(lI,0)
+        self.region[1].calculate_item_coordinates(0,wI)
+        
     def split(self,item):
         lA = item.l
         wA = self.w-item.w
@@ -543,4 +566,7 @@ def optimize(items,W,verbose=False):
         min([i.w for i in items]+[i.l for i in items])
     env = pygena.Population(RegionChromosome, maxgenerations=50, optimum=0,
                             crossover_rate=0.7, mutation_rate=0.01)
-    env.run()
+    best = env.run()
+    best.region.calculate_item_coordinates()
+
+    return best.regin.l,best.items
