@@ -181,37 +181,6 @@ class Region(object):
 
         return num_removed
 
-    def evaluate(self):
-        """
-        Evaluate the region.
-
-        Evaluate the region minimum width and length as well as used area
-        and fillrate.
-        """
-        wI = 0
-        lI = 0
-        aI = 0
-
-        if self.item:
-            wI = self.item.w
-            lI = self.item.l
-            aI = wI*lI
-
-        wA=lA=aA=frA=wB=lB=aB=frB=0
-        if self.regions:
-            wA,lA,aA,frA = self.regions[0].evaluate()
-            wB,lB,aB,frB = self.regions[1].evaluate()
-
-        minw,minl = self.min_dims(wI,lI,wA,lA,wB,lB)
-        area = aI + aA + aB
-
-        if minw==0 or minl==0:
-            fillrate = 0
-        else:
-            fillrate = area/(minw*minl)
-
-        return (minw,minl,area,fillrate)
-
     
 class Block(Region):
     """
