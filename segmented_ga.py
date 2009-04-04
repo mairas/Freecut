@@ -8,6 +8,7 @@ import pygena
 import copy
 import random
 
+
 class ItemType(object):
     def __init__(self, width, length, description="", rotatable=False):
         self.w = width
@@ -17,6 +18,7 @@ class ItemType(object):
 
     def __repr__(self):
         return "ItemType(%d,%d,'%s')" % (self.w,self.l,self.description)
+
 
 class Item(object):
     def __init__(self,type_,rotated=False):
@@ -44,6 +46,7 @@ class Item(object):
     def __str__(self):
         return "Item (%d,%d,%s) of type %r" % (self.w,self.l,('F','T')[self.rotated],self.type)
 
+    
 class Region(object):
     """
     Region is any rectangular area on a plane.
@@ -152,31 +155,13 @@ class Region(object):
 	# FIXME: it's a bit silly to first fill the layout with duplicates
 	#   	 and then remove them again... Should first remove the genuine
 	#	 duplicates and get a list of placed items
-        #print "1",self.num_items(),len(items),self.w,self.l
-            
-        #self.dump()
-        #print "----"
-	self.repair(w,l)
-        #self.dump()
-        #print "----"
+
+	nr = self.repair(w,l)
         self.expand(w,l)
-        #self.dump()
-
-        #print "2",self.num_items(),len(items),self.w,self.l
-
 	unplaced = self.populate(items[:],item_min_dim)
-        #print unplaced
-        #print type(self)
         assert(len(unplaced)==0) # every piece should fit now
-
-        #print "3",self.num_items(),len(items),self.w,self.l
-
 	self.remove_duplicates({})
-
-        #print "4",self.num_items(),len(items),self.w,self.l
-        #print "------"
-
-        self.repair(w,l)
+        nr = self.repair(w,l)
 
     def remove_duplicates(self,seen):
         """
@@ -272,6 +257,18 @@ class Block(Region):
 
 	self.regions = [Block(wA,lA),Block(wB,lB)]
 
+    def transpose(self):
+        """
+        recursively transpose the current Block into Segment.
+        """
+
+        # gotta love Python
+        
+        self.__class__ = Segment
+        if self.item: self.item.rotate()
+        for r in self.regions:
+            r.transpose()
+        
     def drop_item(self):
 	"""
 	Remove the item from the current region.
@@ -326,9 +323,9 @@ class Block(Region):
 
                 # more cleanup
                 if not srA.item and not srB.item:
-                    if not srA.regions:
+                    if not srA.regions and isinstance(srB,Block):
                         self.regions = srB.regions
-                    elif not srB.regions:
+                    elif not srB.regions and isinstance(srA,Block):
                         self.regions = srA.regions
 
         # finally, trim the current region size
@@ -417,6 +414,19 @@ class Segment(Region):
         
         self.regions = [Block(wA,lA),Segment(wB,lB)]
 
+    def transpose(self):
+        """
+        recursively transpose the current Block into Segment.
+        """
+
+        # gotta love Python
+        
+        self.__class__ = Segment
+        if self.item: self.item.rotate()
+        for r in self.regions:
+            r.transpose()
+
+            
     def drop_item(self):
 	"""
 	Remove the item from the current region.
@@ -543,9 +553,12 @@ class RegionChromosome(pygena.BaseChromosome):
         
     def randomize(self):
         self.region = Segment(self.W,self.L)
+        s = Segment(self.W,self.L)
         self._random_rotate_items()
+        # uncomment this to test the GA performance more efficiently
         #random.shuffle(self.items)
-        self.region.populate(self.items[:])
+        s.populate(self.items[:])
+        self.region.regions = [Segment(0,0),s]
 
     def crossover(self,other):
         """
@@ -592,10 +605,12 @@ class RegionChromosome(pygena.BaseChromosome):
         items = self.region.get_items()
         for item in items:
             if random.random() < mutation_rate/len(items):
-                if random.random()<0.5:
+                r2 = random.random()
+                if r2 < 1./3:
+                    item.location.transpose()
+                elif r2 < 2./3:
                     item.rotate()
                 else:
-                    assert(item.location.regions)
                     item.location.drop_item()
                 mutated = True
         if mutated:
@@ -603,30 +618,36 @@ class RegionChromosome(pygena.BaseChromosome):
 
     def repair(self):
         self.region.fix_layout(self.items,self.W,self.L,self.item_min_dim)
+        assert(self.region.num_items()==len(self.items)) # must have all items in the layout
         self.evaluate()
 
     def evaluate(self):
-        self.score = self.region.l
+        self.score = self.region.l/self.region.fillrate()
 
     def asString(self):
-        return 'l=%d, fillrate=%f' % (self.region.l, self.region.fillrate())
+        return 'items=%d, w=%d, l=%d, fillrate=%f' % (self.region.num_items(), self.region.w, self.region.l, self.region.fillrate())
         
-        
+
 def optimize(items,W,verbose=False):
     items.sort(key=lambda x: x.area(), reverse=True)
     RegionChromosome.items = items
     RegionChromosome.W = W
     RegionChromosome.L = 1e6 # any large value should do
+    RegionChromosome.optimization = pygena.MINIMIZE
+
     RegionChromosome.item_min_dim = \
         min([i.w for i in items]+[i.l for i in items])
-    env = pygena.Population(RegionChromosome, maxgenerations=10, optimum=0,
-                            crossover_rate=0.7, mutation_rate=0.2)
+    
+    env = pygena.Population(RegionChromosome, maxgenerations=50, optimum=0,
+                            tournament=pygena.roulette_tournament,
+                            size=100,
+                            crossover_rate=0.7, mutation_rate=0.3)
     best = env.run()
     best.region.calculate_item_coordinates()
     output_items = best.region.get_items()
 
     print "output_items:", len(output_items)
 
-    best.region.dump()
+    #best.region.dump()
     
     return best.region.l,output_items
