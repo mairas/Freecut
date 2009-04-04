@@ -32,7 +32,8 @@ def plot_layout(items,L,W,show=False,draw=False):
     if len(items)>0:
         pylab.clf()
         pylab.axes(aspect='equal')
-        plot_rect(0,0,L,W,'k')
+        # plot the board borders
+        pylab.plot([0,0,0+L,0+L,0],[0,0+W,0+W,0,0],'k')
 
         for i,item in enumerate(items):
             plot_item(item,colors[i%len(colors)])

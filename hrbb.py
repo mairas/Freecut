@@ -3,7 +3,6 @@
 import copy
 import sys
 import math
-from itemplot import *
 
 #import psyco
 #psyco.full()

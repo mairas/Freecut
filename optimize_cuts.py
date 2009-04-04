@@ -1,7 +1,9 @@
 #!/usr/bin/env python
 
 import sys
-from hrbb import Item,optimize_HRBB,plot_layout
+from hrbb import Item,optimize_HRBB
+from itemplot import *
+
 import re
 from optparse import OptionParser
 from pyparsing import *
@@ -49,7 +51,7 @@ if __name__=='__main__':
     #parser.add_option("-o","--output",dest="output",
     #                  help="the output file name")
     parser.add_option("-t","--trim",dest="trim",type="int",
-                      help="the trim amount")
+                      help="the trim amount",default=0)
     parser.add_option("-W","--width",dest="width",type="int",
                       help="the plate width")
     parser.add_option("-s", "--segments", action="store_true",
