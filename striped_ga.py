@@ -68,43 +68,55 @@ class Strip(list):
         return self.covered_area() / self.area()
    
     def populate(self,items):
-        for e in self[::-1]:
+        for e in self:
             if type(e)!=Item:
                 e.populate(items)
         if items:
             for e in items[:]:
-                if e.w<self.W and e.l<self.L:
+                if e.w<self.W-self.w and e.l<self.L-self.l:
                     self.place(items,e)
-                else:
-                    e.rotate()
-                    if e.w<self.W and e.l<self.L:
-                        self.place(items,e)
+                #else:
+                #    e.rotate()
+                #    if e.w<self.W-self.w and e.l<self.L-self.l:
+                #        self.place(items,e)
 
-    def update_dimensions(self,W,L,recurse=True):
-        """Update the subitem dimensions."""
-        W0 = W
-        L0 = L
+    def update_sizes(self):
+        """Update the minimum sizes required to accommodate each subitem."""
         w = 0
         l = 0
-        for e in self:
-            if type(e)==Item:
-                w,l = self.dim_inc(w,l,e.w,e.l)
+        for subel in self:
+            if type(subel)==Item:
+                w,l = self.dim_inc(w,l,subel.w,subel.l)
             else:
-                if recurse:
-                    ew,el = e.update_dimensions(W,L)
-                else:
-                    # trust that the subitem dimensions are correct
-                    ew,el = e.w,e.l
+                ew,el = subel.update_sizes()
                 w,l = self.dim_inc(w,l,ew,el)
-            W = W0-w
-            L = L0-l
-
         self.w = w
         self.l = l
-        self.W = W
-        self.L = L
 
         return w,l
+
+    def update_available_space(self,W,L):
+        """
+        Update the space available for the item.
+        W: available width.
+        L: available length.
+        """
+        self.W = W
+        self.L = L
+        for i,subel in enumerate(self):
+            if i < len(self)-1:
+                # not the last item
+                if type(subel)!=Item:
+                    subel.update_available_space(
+                            *self.available_space(W,L,subel))
+                L -= subel.l
+            else:
+                if type(subel)!=Item:
+                    subel.update_available_space(W,L)
+
+    def update_dimensions(self,W,L):
+        self.update_sizes()
+        self.update_available_space(W,L)
 
 
 class HStrip(Strip):
@@ -116,18 +128,16 @@ class HStrip(Strip):
         l = l+el
         return w,l
 
-
     def place(self,items,item):
         self.append(item)
         items.remove(item)
-        W0 = self.W + self.w
-        L0 = self.L + self.l
         self.w = max(self.w,item.w)
         self.l = self.l+item.l
-        self.W = W0 - self.w
-        self.L = L0 - self.l
 
-
+    def available_space(self,W,L,el):
+        """Return the available space for a subitem in the middle
+        of the strip."""
+        return W,el.l
     
     def repair(self):
         """Repair the layout
@@ -176,12 +186,13 @@ class VStrip(Strip):
     def place(self,items,item):
         self.append(item)
         items.remove(item)
-        W0 = self.W + self.w
-        L0 = self.L + self.l
         self.l = max(self.l,item.l)
         self.w = self.w+item.w
-        self.W = W0 - self.w
-        self.L = L0 - self.l
+
+    def available_space(self,W,L,el):
+        """Return the available space for a subitem in the middle
+        of the strip."""
+        return el.w,L
 
     def repair(self):
         """Repair the layout
