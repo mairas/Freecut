@@ -3,6 +3,7 @@
 import unittest
 from striped_ga import *
 import pdb
+import copy
 
 t1 = ItemType(100,1500)
 t2 = ItemType(300,300)
@@ -35,7 +36,7 @@ class TestSequenceFunctions(unittest.TestCase):
         for i in range(10):
             s.append(VStrip())
 
-        litems = items[:]
+        litems = copy.deepcopy(items)
 
         areas = sum([i.area() for i in litems])
 
@@ -48,7 +49,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(len(litems),0)
         self.assertEqual(s.covered_area(),areas)
 
-    def test_repair_h(self):
+    def test_repair_h_fit(self):
         s = HStrip()
         s.append(i1)
         v = VStrip()
@@ -68,7 +69,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(s.covered_area(),areas)
         self.assertEqual(dropped_areas,i2.area())
         
-    def test_repair_v(self):
+    def test_repair_v_fit(self):
         s = HStrip()
         v = VStrip()
         v.append(i1r)
@@ -88,6 +89,83 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(s.covered_area(),areas)
         self.assertEqual(dropped_areas,i4.area())
 
+    def test_repair_h_remove_empty(self):
+        s = HStrip()
+        s.append(i1)
+        s.append(VStrip())
+        s.append(i3)
+
+        s.update_dimensions(2000,2000)
+        s.repair()
+
+        self.assertEqual(len(s),2)
+
+    def test_repair_h_merge_substrips(self):
+        s = HStrip()
+        s.append(i1)
+        s2 = HStrip()
+        s2.append(i1r)
+        s2.append(i2)
+        s.append(s2)
+        
+        s.update_dimensions(2000,4000)
+        s.repair()
+
+        self.assertEqual(len(s),3)
+        
+    def test_repair_h_unwrap_items(self):
+        s = HStrip()
+        s.append(i1)
+        v = VStrip()
+        v.append(i3)
+        s.append(v)
+
+        s.update_item_min_dims(items)
+
+        s.update_dimensions(350,2000)
+        s.repair()
+
+        self.assertEqual(len(s),2)
+
+    def test_repair_h_unwrap_substrips(self):
+        s = HStrip()
+        s.append(i1)
+        v = VStrip()
+        h = HStrip()
+        h.append(i3)
+        v.append(h)
+        s.append(v)
+
+        s.update_item_min_dims(items)
+
+        s.update_dimensions(2000,2000)
+        s.repair()
+
+        self.assertEqual(len(s),2)
+
+    def test_repair_h_wrap_small_items(self):
+        s = HStrip()
+        v = VStrip()
+        v.append(i4)
+        s.append(v)
+        s.append(i3)
+
+        s.update_item_min_dims([i3,i4])
+
+        s.update_dimensions(600,2000)
+
+        s.repair()
+
+        self.assertEqual(type(s[1]),VStrip)
+
+    def test_remove_duplicates(self):
+        s = HStrip()
+        s.append(i1)
+        s.append(i1)
+
+        s.remove_duplicates({})
+
+        self.assertEqual(len(s),1)
 
 if __name__ == '__main__':
     unittest.main()

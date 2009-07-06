@@ -1,0 +1,4 @@
+200,550,6 	the first part
+1200,150,15        the second part
+250,150,10         the third part
+1200,900,2

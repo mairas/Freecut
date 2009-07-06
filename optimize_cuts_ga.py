@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import sys
-import segmented_ga
+import striped_ga
 from optparse import OptionParser
 from pyparsing import *
 from itemplot import *
@@ -29,9 +29,9 @@ def input_items(filename):
     
     for line in lines:
         l,w,n,r,s = line
-        typ = segmented_ga.ItemType(w,l,s,r)
+        typ = striped_ga.ItemType(w,l,s,r)
         for i in range(n):
-            items.append(segmented_ga.Item(typ))
+            items.append(striped_ga.Item(typ))
                 
     return items
 
@@ -71,7 +71,7 @@ if __name__=='__main__':
 
     add_trim(items,trim)
     
-    L,items = segmented_ga.optimize(items,W+trim,verbose=True)
+    L,items = striped_ga.optimize(items,W+trim,verbose=True)
 
     # remove the trim from the pieces
     L -= trim
