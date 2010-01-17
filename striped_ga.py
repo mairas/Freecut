@@ -69,13 +69,9 @@ class Item(object):
 
         return x_min<x_max and y_min<y_max
 
-    def __repr__(self):
-        return "Item(id=%d,x=%d,y=%d,type_=%r,rotated=%s)" % \
-                (self.id,self.x,self.y,self.type,('False','True')[self.rotated])
-    
     def __str__(self):
-        return "Item (%d,%d,%s,%s,%s) of type %r" % \
-                (self.w,self.h,self.x,self.y,('F','T')[self.rotated],self.type)
+        return "I(id%d,w%s,h%s,x%s,y%s,r%s,t%s,txt'%s')" % \
+                (self.id,self.w,self.h,self.x,self.y,('F','T')[self.rotated],id(self.type),self.text)
 
 
 
