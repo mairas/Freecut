@@ -17,6 +17,10 @@ class ItemType(object):
         self.rotatable = rotatable
         self.text = text
 
+    def __str__(self):
+        return "IT(id%d,w%s,h%s,r%s,txt'%s')" % \
+            (id(self),self.w,self.h,('F','T')[self.rotatable],self.text)
+
     def __repr__(self):
         return "ItemType(%d,%d,'%s')" % (self.w,self.h,self.text)
 
@@ -82,6 +86,29 @@ class Strip(list):
 
     min_item_height = 0
     min_item_width = 0
+
+    def __init__(self):
+        self.w = None
+        self.h = None
+        self.W = None
+        self.H = None
+        super(Strip,self).__init__()
+
+    def dump(self,indent="",with_types=False):
+        if with_types:
+            items = self.get_items()
+            types = {}
+            for item in items:
+                t = item.type
+                types[id(t)] = t
+            for t in types.values():
+                print indent + str(t)
+        print indent + str(self) + "["
+        new_indent = indent + " "
+        for item in self:
+            item.dump(new_indent)
+        print indent + "]"
+
 
     # note: this is a class method!
     def update_item_min_dims(self,items):
@@ -200,7 +227,7 @@ class Strip(list):
         """
         print "here 1: # items:", len(self.get_items())
         self.update_dimensions(H,W)
-        self.dump()
+        self.dump(with_types=True)
         print "here 2: # items:", len(self.get_items())
         nr = self.repair()
         self.update_dimensions(H,W)
@@ -381,17 +408,17 @@ class HStrip(Strip):
 
     def __init__(self):
         self.ortho = VStrip
-        super(HStrip,self).__init__(self)
+        self.w = None
+        self.h = None
+        self.W = None
+        self.H = None
+        super(HStrip,self).__init__()
+
+    def __str__(self):
+        return "H(%s,%s,%s,%s)" % (self.w,self.h,self.W,self.H)
 
     def __repr__(self):
         return "H["+", ".join([repr(s) for s in self])+"]"
-
-    def dump(self,indent=""):
-        print indent + "H(%d,%d,%d,%d)[" % (self.w,self.h,self.W,self.H)
-        new_indent = indent + " "
-        for item in self:
-            item.dump(new_indent)
-        print indent + "]"
 
     def dim_inc(self,h,w,eh,ew):
         """Increase current strip dimensions according to the element size."""
@@ -421,17 +448,13 @@ class VStrip(Strip):
     
     def __init__(self):
         self.ortho = HStrip
-        super(VStrip,self).__init__(self)
+        super(VStrip,self).__init__()
+
+    def __str__(self):
+        return "V(%s,%s,%s,%s)" % (self.w,self.h,self.W,self.H)
 
     def __repr__(self):
         return "V["+", ".join([repr(s) for s in self])+"]"
-
-    def dump(self,indent=""):
-        print indent + "V(%d,%d,%d,%d)[" % (self.w,self.h,self.W,self.H)
-        new_indent = indent + " "
-        for item in self:
-            item.dump(new_indent)
-        print indent + "]"
 
     def dim_inc(self,h,w,eh,ew):
         """Increase current strip dimensions according to the element size."""
