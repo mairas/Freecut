@@ -1,2 +1,0 @@
-137.7,541.1	the first part
-1200,200        the second part

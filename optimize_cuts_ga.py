@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import sys
-import striped_ga
+import striped_ga as optalg
+#import segmented_ga as optalg
 from optparse import OptionParser
 from pyparsing import *
 from itemplot import *
@@ -9,9 +10,11 @@ from itemplot import *
 def parse_input(f):
     # define the grammar
     ParserElement.setDefaultWhitespaceChars(" \t")
+    intnum = Word(nums)
     floatnum = Combine(Word(nums) + "." + Word(nums) +
                        Optional('e'+oneOf("+ -")+Word(nums)))
-    number = (Word(nums)^floatnum).setParseAction( lambda s,l,t: [ float(t[0]) ] )
+    #number = (intnum^floatnum).setParseAction( lambda s,l,t: [ float(t[0]) ] )
+    number = (intnum).setParseAction( lambda s,l,t: [ int(t[0]) ] )
     comma = Literal(",").suppress()
     nl = Literal("\n").suppress()
     amount = Optional((comma + number).setParseAction( lambda s,l,t: [ int(t[0]) ]),default=1)
@@ -29,9 +32,9 @@ def input_items(filename):
     
     for line in lines:
         l,w,n,r,s = line
-        typ = striped_ga.ItemType(w,l,s,r)
+        typ = optalg.ItemType(w,l,s,r)
         for i in range(n):
-            items.append(striped_ga.Item(typ))
+            items.append(optalg.Item(typ))
                 
     return items
 
@@ -45,8 +48,8 @@ def types(items):
 
 def add_trim(items,trim):
     for typ in types(items):
+        typ.h += trim
         typ.w += trim
-        typ.l += trim
 
 def remove_trim(items,trim):
     for typ in types(items):
@@ -71,7 +74,7 @@ if __name__=='__main__':
 
     add_trim(items,trim)
     
-    L,items = striped_ga.optimize(items,W+trim,verbose=True)
+    L,items = optalg.optimize(items,W+trim,verbose=True)
 
     # remove the trim from the pieces
     L -= trim

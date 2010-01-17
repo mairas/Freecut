@@ -1,5 +1,5 @@
-137.7,141.1	y-axis front bearing box
-100,93.3,2	y-axis bearing support
+138,141 	y-axis front bearing box
+100,93,2	y-axis bearing support
 83,80		router attachment
-77.3,190,2	z-axis bearing support
-57.2,57.2,3	motor base
+77,190,2	z-axis bearing support
+57,57,3	        motor base
