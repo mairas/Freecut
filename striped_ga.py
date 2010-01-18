@@ -4,6 +4,7 @@
 from __future__ import division
 import sys
 import math
+import itertools
 import pygena
 import copy
 import random
@@ -393,12 +394,9 @@ class Strip(list):
 
         items = self.get_items()
 
-        for i in range(0,len(items)-1):
-            item1 = items[i]
-            for j in range(i+1,len(items)):
-                item2 = items[j]
-                if item1.overlaps(item2):
-                    pairs.append((item1,item2))
+        for item1,item2 in itertools.combinations(items):
+            if item1.overlaps(item2):
+                pairs.append((item1,item2))
 
         return pairs
 
