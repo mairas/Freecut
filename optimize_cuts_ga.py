@@ -32,7 +32,7 @@ def input_items(filename):
     
     for line in lines:
         l,w,n,r,s = line
-        typ = optalg.ItemType(w,l,s,r)
+        typ = optalg.ItemType(l, w, s, r)
         for i in range(n):
             items.append(optalg.Item(typ))
                 

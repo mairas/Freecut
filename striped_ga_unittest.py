@@ -5,9 +5,9 @@ from striped_ga import *
 import pdb
 import copy
 
-t1 = ItemType(100,1500)
-t2 = ItemType(300,300)
-t3 = ItemType(400,400)
+t1 = ItemType(1500, 100)
+t2 = ItemType(300, 300)
+t3 = ItemType(400, 400)
 
 i1 = Item(t1)
 i1r = Item(t1,rotated=True)

@@ -5,16 +5,33 @@ from __future__ import division
 import sys
 import math
 import itertools
+import weakref
 import pygena
 import copy
 import random
 import pickle
 
+def indent(s, numSpaces):
+    s = s.split("\n")
+    s = [(numSpaces * ' ') + line for line in s]
+    s = "\n".join(s)
+    return s
 
 class ItemType(object):
-    def __init__(self, height, length, text="", rotatable=False):
+    instances = weakref.WeakValueDictionary()
+    def __new__(cls,*args,**kw):
+        a = args + tuple(kw.items())
+        if a in cls.instances:
+            return cls.instances[a]
+        else:
+            newcls = super(ItemType,cls).__new__(cls)
+            cls.instances[a] = newcls
+            return newcls
+
+    def __init__(self, width, height, text="", rotatable=False):
+        if hasattr(self,'h'): return
         self.h = height
-        self.w = length
+        self.w = width
         self.rotatable = rotatable
         self.text = text
 
@@ -23,7 +40,8 @@ class ItemType(object):
             (id(self),self.w,self.h,('F','T')[self.rotatable],self.text)
 
     def __repr__(self):
-        return "ItemType(%d,%d,'%s')" % (self.w,self.h,self.text)
+        return "ItemType(%d,%d,'%s',%s)" % \
+                (self.w,self.h,self.text,self.rotatable)
 
     # do not make deep copies of the types
     def __deepcopy__(self,memo):
@@ -31,16 +49,25 @@ class ItemType(object):
         return self
 
 class Item(object):
-    def __init__(self,type_,rotated=False):
+    def __init__(self,type_,rotated=False,x=None,y=None,id_=None):
         self.type = type_
         self.rotated = rotated
         # create a unique identifier for later matching of duplicates
-        self.id = id(self)
-        self.x = -1
-        self.y = -1
+        if id_ is not None:
+            self.id = id_
+        else:
+            self.id = id(self)
+        self.x = x
+        self.y = y
 
-    def dump(self,indent=""):
-        print indent+str(self)
+    def __str__(self):
+        return "I(id%d,w%s,h%s,x%s,y%s,r%s,t%s,txt'%s')" % \
+                (self.id,self.w,self.h,self.x,self.y, \
+                 ('F','T')[self.rotated],id(self.type),self.text)
+
+    def __repr__(self):
+        return "Item(%r,rotated=%r,x=%r,y=%r)" % \
+                (self.type,self.rotated,self.x,self.y)
 
     def rotate(self):
         self.rotated = not self.rotated
@@ -74,10 +101,6 @@ class Item(object):
 
         return x_min<x_max and y_min<y_max
 
-    def __str__(self):
-        return "I(id%d,w%s,h%s,x%s,y%s,r%s,t%s,txt'%s')" % \
-                (self.id,self.w,self.h,self.x,self.y,('F','T')[self.rotated],id(self.type),self.text)
-
 
 
 class Strip(list):
@@ -88,27 +111,20 @@ class Strip(list):
     min_item_height = 0
     min_item_width = 0
 
-    def __init__(self):
-        self.w = None
-        self.h = None
-        self.W = None
-        self.H = None
+    def __init__(self,w=None,h=None,W=None,H=None,list_=[]):
         super(Strip,self).__init__()
+        self.w = w
+        self.h = h
+        self.W = W
+        self.H = H
+        self += list_
 
-    def dump(self,indent="",with_types=False):
-        if with_types:
-            items = self.get_items()
-            types = {}
-            for item in items:
-                t = item.type
-                types[id(t)] = t
-            for t in types.values():
-                print indent + str(t)
-        print indent + str(self) + "["
-        new_indent = indent + " "
-        for item in self:
-            item.dump(new_indent)
-        print indent + "]"
+    def __repr__(self):
+        r = [repr(p) for p in self]
+        s = ",\n".join(r)
+        s_i = "[\n" + indent(s,2) + "\n]"
+        return "%s(%r,%r,%r,%r,%s)" % \
+                (type(self).__name__,self.w,self.h,self.W,self.H,s_i)
 
 
     # note: this is a class method!
@@ -228,7 +244,7 @@ class Strip(list):
         """
         print "here 1: # items:", len(self.get_items())
         self.update_dimensions(H,W)
-        self.dump(with_types=True)
+        print repr(self)
         print "here 2: # items:", len(self.get_items())
         nr = self.repair()
         self.update_dimensions(H,W)
@@ -260,7 +276,7 @@ class Strip(list):
         self.update_dimensions(H,W)
         print "here 9: # items:", len(self.get_items())
 
-        self.dump()
+        print repr(self)
 
         assert(len(unplaced)==0)
 
@@ -280,7 +296,7 @@ class Strip(list):
             print "Overlapping pairs:"
             for p in pairs:
                 print p
-            self.dump()
+            print(repr(self))
             assert(0)
 
     def update_sizes(self,x=0,y=0):
@@ -394,7 +410,7 @@ class Strip(list):
 
         items = self.get_items()
 
-        for item1,item2 in itertools.combinations(items):
+        for item1,item2 in itertools.combinations(items,2):
             if item1.overlaps(item2):
                 pairs.append((item1,item2))
 
@@ -404,19 +420,12 @@ class Strip(list):
 class HStrip(Strip):
     "A horizontal strip of items and other strips"
 
-    def __init__(self):
+    def __init__(self,*args,**kw):
         self.ortho = VStrip
-        self.w = None
-        self.h = None
-        self.W = None
-        self.H = None
-        super(HStrip,self).__init__()
+        super(HStrip,self).__init__(*args,**kw)
 
     def __str__(self):
         return "H(%s,%s,%s,%s)" % (self.w,self.h,self.W,self.H)
-
-    def __repr__(self):
-        return "H["+", ".join([repr(s) for s in self])+"]"
 
     def dim_inc(self,h,w,eh,ew):
         """Increase current strip dimensions according to the element size."""
@@ -444,15 +453,12 @@ class HStrip(Strip):
 class VStrip(Strip):
     "A vertical strip of items and other strips"
     
-    def __init__(self):
+    def __init__(self,*args,**kw):
         self.ortho = HStrip
-        super(VStrip,self).__init__()
+        super(VStrip,self).__init__(*args,**kw)
 
     def __str__(self):
         return "V(%s,%s,%s,%s)" % (self.w,self.h,self.W,self.H)
-
-    def __repr__(self):
-        return "V["+", ".join([repr(s) for s in self])+"]"
 
     def dim_inc(self,h,w,eh,ew):
         """Increase current strip dimensions according to the element size."""
@@ -568,7 +574,7 @@ class StripChromosome(pygena.BaseChromosome):
         #print "repair: items total:",len(self.items)
         if len(self.strip.get_items())!=len(self.items):
             print "Danger, Will Robinson!"
-            self.strip.dump()
+            print repr(self.strip)
         assert(len(self.strip.get_items())==len(self.items)) 
         self.evaluate()
 
@@ -587,7 +593,7 @@ def optimize(items,H,generations=30,verbose=False,randomize=False):
     Strip().update_item_min_dims(items)
     StripChromosome.items = items
     StripChromosome.H = H
-    StripChromosome.W = 1e6 # any large value should do
+    StripChromosome.W = 1000000 # any large value should do
     StripChromosome.optimization = pygena.MINIMIZE
     StripChromosome.random_order = randomize
 
