@@ -28,7 +28,7 @@ class ItemType(object):
             cls.instances[a] = newcls
             return newcls
 
-    def __init__(self, width, height, text="", rotatable=False):
+    def __init__(self, width, height, text="", rotatable=True):
         if hasattr(self,'h'): return
         self.h = height
         self.w = width
@@ -83,11 +83,11 @@ class Item(object):
     def covered_area(self):
         return self.area()
 
-    def update_strip_space(self,H,W):
+    def update_strip_space(self,W,H):
         """
         Nothing to update for an Item
         """
-        return H,W
+        return W,H
 
     def overlaps(self,other):
         """
@@ -213,7 +213,7 @@ class Strip(list):
         else:
             self.append(item)
         items.remove(item)
-        self.h,self.w = self.dim_inc(self.h,self.w,item.h,item.w)
+        self.w,self.h = self.dim_inc(self.w,self.h,item.w,item.h)
 
     def remove_duplicates(self,seen):
         """
@@ -238,19 +238,18 @@ class Strip(list):
         return num_removed
    
 
-    def fix_layout(self,items,H,W):
+    def fix_layout(self,items,W,H):
         """
         Fix the layout after crossover and mutation operations.
         """
         print "here 1: # items:", len(self.get_items())
-        self.update_dimensions(H,W)
-        print repr(self)
+        self.update_dimensions(W,H)
         print "here 2: # items:", len(self.get_items())
         nr = self.repair()
-        self.update_dimensions(H,W)
+        self.update_dimensions(W,H)
         print "here 3: # items:", len(self.get_items())
         nd = self.remove_duplicates({})
-        self.update_dimensions(H,W)
+        self.update_dimensions(W,H)
         print "here 4: # items:", len(self.get_items())
 
         # get a dict of unplaced items
@@ -264,23 +263,21 @@ class Strip(list):
             except: pass
         unplaced = unplaced.values()
          
-        self.update_dimensions(H,W)
+        self.update_dimensions(W,H)
         print "here 5: # items:", len(self.get_items())
         nr = self.repair()
         print "here 6: # items:", len(self.get_items())
-        self.update_dimensions(H,W)
+        self.update_dimensions(W,H)
         print "here 7: # items:", len(self.get_items())
         self.populate(unplaced)
         print "here 8: # items:", len(self.get_items())
 
-        self.update_dimensions(H,W)
+        self.update_dimensions(W,H)
         print "here 9: # items:", len(self.get_items())
-
-        print repr(self)
 
         assert(len(unplaced)==0)
 
-        self.update_dimensions(H,W)
+        self.update_dimensions(W,H)
 
         if self.h>H or self.w>W:
             print "dims after fix_layout:",self.h,self.w,self.H,self.W,H,W
@@ -288,9 +285,9 @@ class Strip(list):
         assert(self.h<=H)
         assert(self.w<=W)
 
-    def update_dimensions(self,H,W):
+    def update_dimensions(self,W,H):
         self.update_sizes()
-        self.update_available_space(H,W)
+        self.update_available_space(W,H)
         pairs = self.check_for_overlap()
         if pairs:
             print "Overlapping pairs:"
@@ -309,38 +306,36 @@ class Strip(list):
 
         for item in self:
             if isinstance(item,Item):
-                h,w = self.dim_inc(h,w,item.h,item.w)
+                w,h = self.dim_inc(w,h,item.w,item.h)
                 item.x = x
                 item.y = y
             else:
-                eh,ew = item.update_sizes(x,y)
-                h,w = self.dim_inc(h,w,eh,ew)
+                ew,eh = item.update_sizes(x,y)
+                w,h = self.dim_inc(w,h,ew,eh)
 
             x,y = self.inc_coord(x,y,item)
 
         self.h = h
         self.w = w
 
-        return h,w
+        return w,h
 
-    def update_available_space(self,H,W):
+    def update_available_space(self,W,H):
         """
         Update the space available for the item.
-        H: available width.
-        W: available length.
+        W: available width.
+        H: available height.
         """
         self.H = H
         self.W = W
         for i,item in enumerate(self):
             if i < len(self)-1:
                 # not the last item
-                H,W = item.update_strip_space(H,W)
-                if H<item.h or W<item.w:
-                    print "W, H:",W,H
+                W,H = item.update_strip_space(W,H)
             else:
                 # last item
                 if not isinstance(item,Item):
-                    item.update_available_space(H,W)
+                    item.update_available_space(W,H)
 
     def repair_strip(self,i,item):
         """
@@ -383,9 +378,7 @@ class Strip(list):
                 dropped += item.repair()
                 self.repair_strip(i,item)
             else:
-                print "repair, seen:",item,self.W,self.H
                 if not self.fits(item):
-                    print "dropping item",item,"from", type(self)
                     d = self.pop(i)
                     dropped.append(d)
                     #if self.same_width(d):
@@ -427,20 +420,21 @@ class HStrip(Strip):
     def __str__(self):
         return "H(%s,%s,%s,%s)" % (self.w,self.h,self.W,self.H)
 
-    def dim_inc(self,h,w,eh,ew):
+    def dim_inc(self,w,h,ew,eh):
         """Increase current strip dimensions according to the element size."""
         h = max(h,eh)
         w = w+ew
-        return h,w
+        return w,h
 
 
-    def update_strip_space(self,H,W):
+    def update_strip_space(self,W,H):
         """
         Update available strip space in an orientation-specific manner
         """
-        self.update_available_space(H,self.w)
-        W -= self.w
-        return H,W
+        w = min(self.w,W)
+        self.update_available_space(w,H)
+        W -= w
+        return W,H
 
     def is_wrappable(self,item):
         return item.h+self.min_item_height<=self.H
@@ -460,19 +454,20 @@ class VStrip(Strip):
     def __str__(self):
         return "V(%s,%s,%s,%s)" % (self.w,self.h,self.W,self.H)
 
-    def dim_inc(self,h,w,eh,ew):
+    def dim_inc(self,w,h,ew,eh):
         """Increase current strip dimensions according to the element size."""
         h = h+eh
         w = max(w,ew)
-        return h,w
+        return w,h
 
-    def update_strip_space(self,H,W):
+    def update_strip_space(self,W,H):
         """
         Update available strip space in an orientation-specific manner
         """
-        self.update_available_space(self.h,W)
-        H -= self.h
-        return H,W
+        h = min(self.h,H)
+        self.update_available_space(W,h)
+        H -= h
+        return W,H
 
     def is_wrappable(self,item):
         return item.w+self.min_item_width<=self.W
@@ -507,7 +502,7 @@ class StripChromosome(pygena.BaseChromosome):
         items = self.items[:]
         # TODO: randomize between HStrip and VStrip
         self.strip = HStrip()
-        self.strip.update_dimensions(self.H,self.W)
+        self.strip.update_dimensions(self.W,self.H)
         #self._random_rotate_items()
         if self.random_order:
             random.shuffle(items)
@@ -567,11 +562,9 @@ class StripChromosome(pygena.BaseChromosome):
             self.repair()
 
     def repair(self):
-        #print "repair: items in strip before fix:",len(self.strip.get_items())
+        print repr(self.strip)
         self.strip.fix_layout(self.items,self.H,self.W)
         # must have all items in the layout
-        #print "repair: items in strip after fix:",len(self.strip.get_items())
-        #print "repair: items total:",len(self.items)
         if len(self.strip.get_items())!=len(self.items):
             print "Danger, Will Robinson!"
             print repr(self.strip)

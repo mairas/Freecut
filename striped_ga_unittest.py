@@ -12,6 +12,7 @@ t3 = ItemType(400, 400)
 i1 = Item(t1)
 i1r = Item(t1,rotated=True)
 i2 = Item(t1)
+i2r = Item(t1,rotated=True)
 i3 = Item(t2)
 i4 = Item(t3)
 
@@ -68,26 +69,113 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.assertEqual(s.covered_area(),areas)
         self.assertEqual(dropped_areas,i2.area())
-        
-    def test_repair_v_fit(self):
+
+    def test_update_dimensions_1(self):
+        """
+        Test update_dimensions with a simple one-item case
+        """
         s = HStrip()
         v = VStrip()
         v.append(i1r)
-        v.append(i3)
-        v.append(i4)
         s.append(v)
-        s.append(i1)
 
         s.update_dimensions(2000,2000)
 
-        areas = sum([i.area() for i in [i1r,i3,i1]])
+        self.assertEqual(s.W,2000)
+        self.assertEqual(s.H,2000)
+        self.assertEqual(v.W,2000)
+        self.assertEqual(v.H,2000)
+
+    def test_update_dimensions_2(self):
+        """
+        Test update_dimensions with two items
+        """
+        s = HStrip()
+        v = VStrip()
+        v.append(i1r)
+        v.append(i2r)
+        s.append(v)
+
+        s.update_dimensions(2000,2000)
+
+        self.assertEqual(s.W,2000)
+        self.assertEqual(s.H,2000)
+        self.assertEqual(v.W,2000)
+        self.assertEqual(v.H,2000)
+
+    def test_update_dimensions_3(self):
+        """
+        Test update_dimensions with three items
+        """
+        s = HStrip()
+        v = VStrip()
+        v.append(i1r)
+        v.append(i2r)
+        s.append(v)
+        s.append(i4)
+
+        s.update_dimensions(2000,2000)
+
+        self.assertEqual(s.W,2000)
+        self.assertEqual(s.H,2000)
+        self.assertEqual(v.W,2000)
+        self.assertEqual(v.H,2000)
+
+    def test_repair_v_fit_simple(self):
+        """
+        Test a layout with 1500+1500 height items, fit to
+        a strip of 2000 high. i2r should be too much.
+        """
+        s = HStrip()
+        v = VStrip()
+        v.append(i1r)
+        v.append(i2r)
+        s.append(v)
+
+        s.update_dimensions(2000,2000)
+
+        # area that should remain
+        areas = i1r.area()
 
         dropped = s.repair()
 
         dropped_areas = sum([i.area() for i in dropped])
 
+        # the remaining covered area
         self.assertEqual(s.covered_area(),areas)
-        self.assertEqual(dropped_areas,i4.area())
+        # the dropped area should equal to that of i2r
+        self.assertEqual(dropped_areas,i2r.area())
+
+        
+    def test_repair_v_fit(self):
+        """
+        Test a layout with 1500+1500 height items on top
+        of each other and try to fit it in a 2000 high strip.
+        i2r should be too much.
+        """
+        s = HStrip()
+        v = VStrip()
+        v.append(i1r)
+        v.append(i2r)
+        s.append(v)
+        s.append(i4)
+
+        s.update_dimensions(2000,2000)
+
+        # areas of items that should remain
+        areas = sum([i.area() for i in [i1r,i4]])
+
+        dropped = s.repair()
+        for i in dropped:
+            print i
+
+        # areas of dropped items
+        dropped_areas = sum([i.area() for i in dropped])
+
+        # the remaining covered area
+        self.assertEqual(s.covered_area(),areas)
+        # the dropped area should equal to that of i2r
+        self.assertEqual(dropped_areas,i2r.area())
 
     def test_repair_h_remove_empty(self):
         s = HStrip()
@@ -122,7 +210,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         s.update_item_min_dims(items)
 
-        s.update_dimensions(350,2000)
+        s.update_dimensions(2000,350)
         s.repair()
 
         self.assertEqual(len(s),2)
@@ -144,6 +232,11 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(len(s),2)
 
     def test_repair_h_wrap_small_items(self):
+        """
+        small lone items should be wrapped into a strip
+
+        i3 should get wrapped
+        """
         s = HStrip()
         v = VStrip()
         v.append(i4)
@@ -152,9 +245,11 @@ class TestSequenceFunctions(unittest.TestCase):
 
         s.update_item_min_dims([i3,i4])
 
-        s.update_dimensions(600,2000)
+        s.update_dimensions(2000,600)
 
+        print repr(s)
         s.repair()
+        print repr(s)
 
         self.assertEqual(type(s[1]),VStrip)
 
@@ -168,5 +263,5 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(len(s),1)
 
 if __name__ == '__main__':
-    unittest.main()
-
+    suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)
+    unittest.TextTestRunner(verbosity=2).run(suite)
