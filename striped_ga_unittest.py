@@ -50,6 +50,25 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(len(litems),0)
         self.assertEqual(s.covered_area(),areas)
 
+    def test_populate_2(self):
+        "must be able to place the item"
+        unplaced = [Item(ItemType(400,400,'piece 2',True),rotated=False,x=900,y=0)]
+        s = HStrip(900,800,1000000,1000,0,0,[
+              Item(ItemType(300,600,'piece 1',True),rotated=True,x=0,y=0),
+              VStrip(300,800,999400,1000,600,0,[
+                HStrip(200,200,999400,200,600,0,[
+                  Item(ItemType(200,200,'piece 3',True),rotated=False,x=600,y=0)
+                ]),
+                Item(ItemType(300,600,'piece 1',True),rotated=False,x=600,y=200)
+              ])
+            ])
+
+        s.populate(unplaced)
+
+        n = len(s.get_items())
+
+        self.assertEqual(n,4)
+
     def test_repair_h_fit(self):
         s = HStrip()
         s.append(i1)
@@ -105,7 +124,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
     def test_update_dimensions_3(self):
         """
-        Test update_dimensions with three items
+        Test update_dimensions with three items that overflow the region
         """
         s = HStrip()
         v = VStrip()
@@ -118,8 +137,27 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.assertEqual(s.W,2000)
         self.assertEqual(s.H,2000)
-        self.assertEqual(v.W,2000)
+        self.assertEqual(v.W,v.w)
         self.assertEqual(v.H,2000)
+
+    def test_update_dimensions_4(self):
+        """
+        Test whether available width and length get updated
+        """
+        s = HStrip()
+        v1 = VStrip()
+        v2 = VStrip()
+        v1.append(i1r)
+        v2.append(i2r)
+        s.append(v1)
+        s.append(v2)
+
+        s.update_dimensions(2000,2000)
+
+        self.assertEqual(s[0].W,i1r.w)
+        self.assertEqual(s[0].H,2000)
+        self.assertEqual(s[1].W,2000-i1r.w)
+        self.assertEqual(s[1].H,2000)
 
     def test_repair_v_fit_simple(self):
         """
@@ -166,8 +204,6 @@ class TestSequenceFunctions(unittest.TestCase):
         areas = sum([i.area() for i in [i1r,i4]])
 
         dropped = s.repair()
-        for i in dropped:
-            print i
 
         # areas of dropped items
         dropped_areas = sum([i.area() for i in dropped])
@@ -176,6 +212,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(s.covered_area(),areas)
         # the dropped area should equal to that of i2r
         self.assertEqual(dropped_areas,i2r.area())
+
 
     def test_repair_h_remove_empty(self):
         s = HStrip()
@@ -196,9 +233,8 @@ class TestSequenceFunctions(unittest.TestCase):
         s2.append(i2)
         s.append(s2)
         
-        s.update_dimensions(2000,4000)
+        s.update_dimensions(4000,2000)
         s.repair()
-
         self.assertEqual(len(s),3)
         
     def test_repair_h_unwrap_items(self):
@@ -247,11 +283,34 @@ class TestSequenceFunctions(unittest.TestCase):
 
         s.update_dimensions(2000,600)
 
-        print repr(s)
         s.repair()
-        print repr(s)
 
         self.assertEqual(type(s[1]),VStrip)
+
+    def test_remove_duplicates_2(self):
+        """
+        this layout has one duplicate item that should be removed
+        """
+        s = HStrip(1800,900,1000000,1000,0,0,[
+          VStrip(600,900,1000000,900,0,0,[
+            Item(ItemType(300,600,'piece 1',True),rotated=False,x=0,y=0,id_=44702928),
+            Item(ItemType(300,600,'piece 1',True),rotated=True,x=0,y=600,id_=44703440)
+          ]),
+          VStrip(600,300,1000000,100,600,0,[
+            Item(ItemType(300,600,'piece 1',True),rotated=True,x=600,y=0,id_=44703440)
+          ]),
+          VStrip(200,200,1000000,0,1200,0,[
+            Item(ItemType(200,200,'piece 3',True),rotated=False,x=1200,y=0,id_=44703184)
+          ]),
+          #VStrip(400,400,1000000,0,1400,0,[
+          #  Item(ItemType(400,400,'piece 2',True),rotated=False,x=1400,y=0,id_=44699984)
+          #])
+        ])
+
+        s.remove_duplicates({})
+
+        self.assertEqual(len(s.get_items()),3)
+
 
     def test_remove_duplicates(self):
         s = HStrip()
@@ -261,6 +320,27 @@ class TestSequenceFunctions(unittest.TestCase):
         s.remove_duplicates({})
 
         self.assertEqual(len(s),1)
+
+    def test_populate(self):
+        """
+        simplest test of populate that could be made to fail
+        """
+        items = [Item(ItemType(300,600,'piece 1',True),
+                      rotated=False,x=None,y=None),
+                 Item(ItemType(400,400,'piece 2',True),
+                      rotated=False,x=None,y=None),
+                ]
+        Strip().update_item_min_dims(items)
+
+        strip = HStrip()
+        strip.update_dimensions(10000,1000)
+        #pdb.set_trace()
+        strip.populate(items)
+        print "after populate:"
+        print repr(strip)
+        # all items must be placed after populate
+        self.assertEqual(len(items),0)
+
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)

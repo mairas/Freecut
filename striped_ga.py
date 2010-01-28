@@ -83,12 +83,6 @@ class Item(object):
     def covered_area(self):
         return self.area()
 
-    def update_strip_space(self,W,H):
-        """
-        Nothing to update for an Item
-        """
-        return W,H
-
     def overlaps(self,other):
         """
         Return true if the items overlap
@@ -111,20 +105,22 @@ class Strip(list):
     min_item_height = 0
     min_item_width = 0
 
-    def __init__(self,w=None,h=None,W=None,H=None,list_=[]):
+    def __init__(self,w=None,h=None,W=None,H=None,x=None,y=None,list_=[]):
         super(Strip,self).__init__()
         self.w = w
         self.h = h
         self.W = W
         self.H = H
+        self.x = x
+        self.y = y
         self += list_
 
     def __repr__(self):
         r = [repr(p) for p in self]
         s = ",\n".join(r)
         s_i = "[\n" + indent(s,2) + "\n]"
-        return "%s(%r,%r,%r,%r,%s)" % \
-                (type(self).__name__,self.w,self.h,self.W,self.H,s_i)
+        return "%s(%r,%r,%r,%r,%r,%r,%s)" % \
+                (type(self).__name__,self.w,self.h,self.W,self.H,self.x,self.y,s_i)
 
 
     # note: this is a class method!
@@ -190,23 +186,27 @@ class Strip(list):
 
 
     def populate(self,items):
+        """
+        place all items in the strip
+
+        removes elements from the items list
+        """
         # first populate substrips
         for item in self:
             if not isinstance(item,Item):
                 item.populate(items)
         for item in items[:]:
             # available width and height
-            av_height = self.H-self.h
-            av_width = self.W-self.w
-            if item.h<av_height and item.w<av_width:
-                self.place(items,item,av_height,av_width)
+            av_width,av_height = self.get_available_space()
+            if item.h<=av_height and item.w<=av_width:
+                self.place(items,item)
             elif item.type.rotatable:
                 item.rotate()
                 if item.h<av_height and item.w<av_width:
-                    self.place(items,item,av_height,av_width)
+                    self.place(items,item)
 
-    def place(self,items,item,av_height,av_width):
-        if av_width>self.min_item_width:
+    def place(self,items,item):
+        if self.is_wrappable(item):
             s = self.ortho()
             s.append(item)
             self.append(s)
@@ -226,7 +226,7 @@ class Strip(list):
         for i in range(len(self)-1,-1,-1):
             item = self[i]
             if isinstance(item,Item):
-                if seen.has_key(item.id):
+                if item.id in seen:
                     #print "dropped in remove_duplicates:", item.id
                     self.pop(i)
                     num_removed += 1
@@ -242,38 +242,26 @@ class Strip(list):
         """
         Fix the layout after crossover and mutation operations.
         """
-        print "here 1: # items:", len(self.get_items())
-        self.update_dimensions(W,H)
-        print "here 2: # items:", len(self.get_items())
-        nr = self.repair()
-        self.update_dimensions(W,H)
-        print "here 3: # items:", len(self.get_items())
         nd = self.remove_duplicates({})
         self.update_dimensions(W,H)
-        print "here 4: # items:", len(self.get_items())
 
-        # get a dict of unplaced items
+        nr = self.repair()
+
+        self.update_dimensions(W,H)
+
+        # get a list of unplaced items
 
         unplaced = {}
-        for e in items[:]:
-            unplaced[e.id] = e
+        for e in items[:]: unplaced[e.id] = e
         placed = self.get_items()
         for p in placed:
             try: del unplaced[p.id]
             except: pass
         unplaced = unplaced.values()
          
-        self.update_dimensions(W,H)
-        print "here 5: # items:", len(self.get_items())
-        nr = self.repair()
-        print "here 6: # items:", len(self.get_items())
-        self.update_dimensions(W,H)
-        print "here 7: # items:", len(self.get_items())
         self.populate(unplaced)
-        print "here 8: # items:", len(self.get_items())
 
         self.update_dimensions(W,H)
-        print "here 9: # items:", len(self.get_items())
 
         assert(len(unplaced)==0)
 
@@ -289,12 +277,7 @@ class Strip(list):
         self.update_sizes()
         self.update_available_space(W,H)
         pairs = self.check_for_overlap()
-        if pairs:
-            print "Overlapping pairs:"
-            for p in pairs:
-                print p
-            print(repr(self))
-            assert(0)
+        assert(len(pairs)==0)
 
     def update_sizes(self,x=0,y=0):
         """Update the minimum sizes required to accommodate each subitem."""
@@ -319,23 +302,6 @@ class Strip(list):
         self.w = w
 
         return w,h
-
-    def update_available_space(self,W,H):
-        """
-        Update the space available for the item.
-        W: available width.
-        H: available height.
-        """
-        self.H = H
-        self.W = W
-        for i,item in enumerate(self):
-            if i < len(self)-1:
-                # not the last item
-                W,H = item.update_strip_space(W,H)
-            else:
-                # last item
-                if not isinstance(item,Item):
-                    item.update_available_space(W,H)
 
     def repair_strip(self,i,item):
         """
@@ -426,15 +392,27 @@ class HStrip(Strip):
         w = w+ew
         return w,h
 
+    def get_available_space(self):
+        av_width = self.W-self.w
+        av_height = self.H
+        return av_width,av_height
 
-    def update_strip_space(self,W,H):
+    def update_available_space(self,W,H):
         """
-        Update available strip space in an orientation-specific manner
+        Update the space available for the strip
         """
-        w = min(self.w,W)
-        self.update_available_space(w,H)
-        W -= w
-        return W,H
+        self.W = W
+        self.H = H
+
+        for i,item in enumerate(self):
+            if i < len(self)-1:
+                # not the last item in strip
+                w = min(item.w,W)
+                W -= w
+            else:
+                w = W
+            if not isinstance(item,Item):
+                item.update_available_space(w,H)
 
     def is_wrappable(self,item):
         return item.h+self.min_item_height<=self.H
@@ -460,14 +438,27 @@ class VStrip(Strip):
         w = max(w,ew)
         return w,h
 
-    def update_strip_space(self,W,H):
+    def get_available_space(self):
+        av_width = self.W
+        av_height = self.H-self.h
+        return av_width,av_height
+
+    def update_available_space(self,W,H):
         """
-        Update available strip space in an orientation-specific manner
+        Update the space available for the strip
         """
-        h = min(self.h,H)
-        self.update_available_space(W,h)
-        H -= h
-        return W,H
+        self.W = W
+        self.H = H
+
+        for i,item in enumerate(self):
+            if i < len(self)-1:
+                # not the last item in strip
+                h = min(item.h,H)
+                H -= h
+            else:
+                h = H
+            if not isinstance(item,Item):
+                item.update_available_space(W,h)
 
     def is_wrappable(self,item):
         return item.w+self.min_item_width<=self.W
@@ -562,8 +553,7 @@ class StripChromosome(pygena.BaseChromosome):
             self.repair()
 
     def repair(self):
-        print repr(self.strip)
-        self.strip.fix_layout(self.items,self.H,self.W)
+        self.strip.fix_layout(self.items,self.W,self.H)
         # must have all items in the layout
         if len(self.strip.get_items())!=len(self.items):
             print "Danger, Will Robinson!"
@@ -583,6 +573,8 @@ class StripChromosome(pygena.BaseChromosome):
 
 def optimize(items,H,generations=30,verbose=False,randomize=False):
     items.sort(key=lambda x: x.area(), reverse=True)
+    for i in items:
+        print repr(i)
     Strip().update_item_min_dims(items)
     StripChromosome.items = items
     StripChromosome.H = H
@@ -599,6 +591,7 @@ def optimize(items,H,generations=30,verbose=False,randomize=False):
                             size=100,
                             crossover_rate=0.7, mutation_rate=0.2)
     best = env.run()
+    best.strip.update_dimensions(StripChromosome.W,StripChromosome.H)
     #best.strip.sort()
     pickle.dump(best,open("striped_ga.pickle","w"))
     output_items = best.strip.get_items()

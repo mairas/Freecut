@@ -31,8 +31,8 @@ def input_items(filename):
     items = []
     
     for line in lines:
-        l,w,n,r,s = line
-        typ = optalg.ItemType(l, w, s, r)
+        w,h,n,r,s = line
+        typ = optalg.ItemType(w, h, s, r)
         for i in range(n):
             items.append(optalg.Item(typ))
                 
@@ -48,13 +48,13 @@ def types(items):
 
 def add_trim(items,trim):
     for typ in types(items):
-        typ.h += trim
         typ.w += trim
+        typ.h += trim
 
 def remove_trim(items,trim):
     for typ in types(items):
         typ.w -= trim
-        typ.l -= trim
+        typ.h -= trim
 
 if __name__=='__main__':
     parser = OptionParser()
@@ -63,25 +63,25 @@ if __name__=='__main__':
     #                  help="the output file name")
     parser.add_option("-t","--trim",dest="trim",type="int",
                       help="the trim amount", default=0.)
-    parser.add_option("-W","--width",dest="width",type="int",
-                      help="the plate width")
+    parser.add_option("-H","--height",dest="height",type="int",
+                      help="the plate height")
     
     (options,args) = parser.parse_args()
-    W = options.width
+    H = options.height
     trim = options.trim
 
     items = input_items(args[0])
 
     add_trim(items,trim)
     
-    L,items = optalg.optimize(items,W+trim,verbose=True)
+    W,items = optalg.optimize(items,H+trim,verbose=True)
 
     # remove the trim from the pieces
-    L -= trim
+    W -= trim
     remove_trim(items,trim)
     
-    plot_layout(items,L,W,show=True)
+    plot_layout(items,W,H,show=True)
     
     for item in items:
-        print item.l,item.w,item.x,item.y
+        print item.w,item.h,item.x,item.y
     
