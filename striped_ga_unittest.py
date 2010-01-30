@@ -28,7 +28,7 @@ class TestSequenceFunctions(unittest.TestCase):
         s.append(v)
         s.append(i4)
 
-        s.update_dimensions(2000,4000)
+        s.update_dimensions(4000,2000)
 
         self.assertEqual(v.area(),400*1500)
         
@@ -41,11 +41,11 @@ class TestSequenceFunctions(unittest.TestCase):
 
         areas = sum([i.area() for i in litems])
 
-        s.update_dimensions(2000,4000)
+        s.update_dimensions(4000,2000)
 
         s.populate(litems)
 
-        s.update_dimensions(2000,4000)
+        s.update_dimensions(4000,2000)
         
         self.assertEqual(len(litems),0)
         self.assertEqual(s.covered_area(),areas)
@@ -68,6 +68,25 @@ class TestSequenceFunctions(unittest.TestCase):
         n = len(s.get_items())
 
         self.assertEqual(n,4)
+
+    def test_populate_3(self):
+        """
+        do not utilize available space twice
+        """
+        s = HStrip()
+        v1 = VStrip()
+        s.append(v1)
+        v2 = VStrip()
+        v1.append(v2)
+        v2.append(Item(ItemType(1500,100)))
+
+        unplaced = [Item(ItemType(1500,100)),Item(ItemType(1500,100))]
+
+        s.update_dimensions(1000000,200)
+        s.populate(unplaced)
+        s.update_dimensions(1000000,200)
+
+        self.assert_(s.h<=s.H)
 
     def test_repair_h_fit(self):
         s = HStrip()
@@ -158,6 +177,7 @@ class TestSequenceFunctions(unittest.TestCase):
         self.assertEqual(s[0].H,2000)
         self.assertEqual(s[1].W,2000-i1r.w)
         self.assertEqual(s[1].H,2000)
+
 
     def test_repair_v_fit_simple(self):
         """
@@ -340,7 +360,6 @@ class TestSequenceFunctions(unittest.TestCase):
         print repr(strip)
         # all items must be placed after populate
         self.assertEqual(len(items),0)
-
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)

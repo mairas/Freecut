@@ -178,10 +178,6 @@ class Strip(list):
         Return true if the item actually fits the strip.
         """
         f = item.x+item.w<=self.x+self.W and item.y+item.h<=self.y+self.H
-        if self.W<=0 or self.H<=0:
-            print "should not fit:",item.x,item.y,item.w,item.h,self.W,self.H,f
-        # if not f:
-        #     print "no fit:",item.x,item.l,self.x,self.W,item.y,item.w,self.y,self.H
         return f
 
 
@@ -194,7 +190,10 @@ class Strip(list):
         # first populate substrips
         for item in self:
             if not isinstance(item,Item):
+                iw,ih = item.w,item.h
                 item.populate(items)
+                dw,dh = item.w-iw,item.h-ih
+                self.populate_inc_dims(item,dw,dh)
         for item in items[:]:
             # available width and height
             av_width,av_height = self.get_available_space()
@@ -202,7 +201,7 @@ class Strip(list):
                 self.place(items,item)
             elif item.type.rotatable:
                 item.rotate()
-                if item.h<av_height and item.w<av_width:
+                if item.h<=av_height and item.w<=av_width:
                     self.place(items,item)
 
     def place(self,items,item):
@@ -222,12 +221,10 @@ class Strip(list):
         Returns the amount of items removed.
         """
         num_removed = 0
-        # print "seen: ", sorted(seen.keys())
         for i in range(len(self)-1,-1,-1):
             item = self[i]
             if isinstance(item,Item):
                 if item.id in seen:
-                    #print "dropped in remove_duplicates:", item.id
                     self.pop(i)
                     num_removed += 1
                 else:
@@ -242,13 +239,20 @@ class Strip(list):
         """
         Fix the layout after crossover and mutation operations.
         """
+        def pdebug(self,s):
+            if 0:
+                print s,"-"*20
+                print repr(self)
+        pdebug(self,"here 1")
         nd = self.remove_duplicates({})
         self.update_dimensions(W,H)
 
+        pdebug(self,"here 2")
         nr = self.repair()
 
         self.update_dimensions(W,H)
 
+        pdebug(self,"here 3")
         # get a list of unplaced items
 
         unplaced = {}
@@ -263,12 +267,12 @@ class Strip(list):
 
         self.update_dimensions(W,H)
 
+        pdebug(self,"here 4")
+
         assert(len(unplaced)==0)
 
-        self.update_dimensions(W,H)
-
         if self.h>H or self.w>W:
-            print "dims after fix_layout:",self.h,self.w,self.H,self.W,H,W
+            print "dims after fix_layout:",self.w,self.h,self.W,self.H
 
         assert(self.h<=H)
         assert(self.w<=W)
@@ -296,7 +300,7 @@ class Strip(list):
                 ew,eh = item.update_sizes(x,y)
                 w,h = self.dim_inc(w,h,ew,eh)
 
-            x,y = self.inc_coord(x,y,item)
+            x,y = self.update_sizes_inc_coord(x,y,item)
 
         self.h = h
         self.w = w
@@ -417,10 +421,13 @@ class HStrip(Strip):
     def is_wrappable(self,item):
         return item.h+self.min_item_height<=self.H
 
-    def inc_coord(self,x,y,item):
+    def update_sizes_inc_coord(self,x,y,item):
         x = x+item.w
         return x,y
 
+    def populate_inc_dims(self,item,dw,dh):
+        self.w += dw
+        self.h = max(self.h,item.h)
 
 class VStrip(Strip):
     "A vertical strip of items and other strips"
@@ -463,9 +470,13 @@ class VStrip(Strip):
     def is_wrappable(self,item):
         return item.w+self.min_item_width<=self.W
 
-    def inc_coord(self,x,y,item):
+    def update_sizes_inc_coord(self,x,y,item):
         y = y+item.h
         return x,y
+
+    def populate_inc_dims(self,item,dw,dh):
+        self.h += dh
+        self.w = max(self.w,item.w)
 
 
 
