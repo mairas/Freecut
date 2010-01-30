@@ -83,6 +83,9 @@ class Item(object):
     def covered_area(self):
         return self.area()
 
+    def get_items(self):
+        return [self]
+
     def overlaps(self,other):
         """
         Return true if the items overlap
@@ -137,6 +140,7 @@ class Strip(list):
                 Strip.min_item_width = min(Strip.min_item_height,item.h)
                 Strip.min_item_height = min(Strip.min_item_width,item.w)
 
+
     def area(self):
         return self.w * self.h
         
@@ -170,6 +174,16 @@ class Strip(list):
             if not isinstance(item,Item):
                 strips += item.get_strips()
         return strips
+
+
+    def sort_recursive(self):
+        "recursively sort the subitems according to covered area"
+        # first sort substrips
+        for s in [s for s in self if isinstance(s,Strip)]:
+            s.sort_recursive()
+        # then sort the current strip
+        self.sort(key=lambda s: -s.covered_area()/len(s.get_items()))
+
 
     def fits(self,item):
         """
@@ -268,6 +282,8 @@ class Strip(list):
         self.update_dimensions(W,H)
 
         pdebug(self,"here 4")
+
+        self.sort_recursive()
 
         assert(len(unplaced)==0)
 
@@ -510,6 +526,8 @@ class StripChromosome(pygena.BaseChromosome):
         if self.random_order:
             random.shuffle(items)
         self.strip.populate(items)
+        self.strip.update_dimensions(self.W,self.H)
+        self.strip.sort_recursive()
         # force changes in the chromosome
         #self.mutate(100.0)
 
@@ -585,8 +603,6 @@ class StripChromosome(pygena.BaseChromosome):
 
 def optimize(items,H,generations=30,verbose=False,randomize=False):
     items.sort(key=lambda x: x.area(), reverse=True)
-    for i in items:
-        print repr(i)
     Strip().update_item_min_dims(items)
     StripChromosome.items = items
     StripChromosome.H = H
