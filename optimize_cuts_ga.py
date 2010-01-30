@@ -13,8 +13,8 @@ def parse_input(f):
     intnum = Word(nums)
     floatnum = Combine(Word(nums) + "." + Word(nums) +
                        Optional('e'+oneOf("+ -")+Word(nums)))
-    #number = (intnum^floatnum).setParseAction( lambda s,l,t: [ float(t[0]) ] )
-    number = (intnum).setParseAction( lambda s,l,t: [ int(t[0]) ] )
+    number = (intnum^floatnum).setParseAction( lambda s,l,t: [ float(t[0]) ] )
+    #number = (intnum).setParseAction( lambda s,l,t: [ int(t[0]) ] )
     comma = Literal(",").suppress()
     nl = Literal("\n").suppress()
     amount = Optional((comma + number).setParseAction( lambda s,l,t: [ int(t[0]) ]),default=1)

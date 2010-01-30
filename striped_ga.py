@@ -280,8 +280,9 @@ class Strip(list):
     def update_dimensions(self,W,H):
         self.update_sizes()
         self.update_available_space(W,H)
-        pairs = self.check_for_overlap()
-        assert(len(pairs)==0)
+        # assertion might fail for floating point coordinates
+        #pairs = self.check_for_overlap()
+        #assert(len(pairs)==0)
 
     def update_sizes(self,x=0,y=0):
         """Update the minimum sizes required to accommodate each subitem."""
@@ -589,7 +590,7 @@ def optimize(items,H,generations=30,verbose=False,randomize=False):
     Strip().update_item_min_dims(items)
     StripChromosome.items = items
     StripChromosome.H = H
-    StripChromosome.W = 1000000 # any large value should do
+    StripChromosome.W = 1e6 # any large value should do
     StripChromosome.optimization = pygena.MINIMIZE
     StripChromosome.random_order = randomize
 
