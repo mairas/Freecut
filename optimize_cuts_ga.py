@@ -65,16 +65,32 @@ if __name__=='__main__':
                       help="the trim amount", default=0.)
     parser.add_option("-H","--height",dest="height",type="int",
                       help="the plate height")
+    parser.add_option("-g","--generations",dest="generations",type="int",
+                      help="the maximum number of generations",
+                      default=200)
+    parser.add_option("-P","--plateau",dest="plateau",type="int",
+                      help="the maximum number generations with no improvement",
+                      default=10)
+    parser.add_option("-r","--randomize",dest="randomize",action="store_true",
+                      default=False)
+    parser.add_option("-p","--pop_size",dest="pop_size",type="int",
+                      help="the size of the population",
+                      default=100)
     
     (options,args) = parser.parse_args()
     H = options.height
     trim = options.trim
+    generations = options.generations
+    randomize = options.randomize
+    pop_size = options.pop_size
 
     items = input_items(args[0])
 
     add_trim(items,trim)
     
-    W,items = optalg.optimize(items,H+trim,verbose=True)
+    W,items = optalg.optimize(items,H+trim,generations=generations,
+                              randomize=randomize,
+                              pop_size=pop_size,verbose=True)
 
     # remove the trim from the pieces
     W -= trim

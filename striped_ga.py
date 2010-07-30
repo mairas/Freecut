@@ -83,6 +83,9 @@ class Item(object):
     def covered_area(self):
         return self.area()
 
+    def fillrate(self):
+        return 1
+
     def get_items(self):
         return [self]
 
@@ -182,7 +185,8 @@ class Strip(list):
         for s in [s for s in self if isinstance(s,Strip)]:
             s.sort_recursive()
         # then sort the current strip
-        self.sort(key=lambda s: -s.covered_area()/len(s.get_items()))
+        #self.sort(key=lambda s: -s.covered_area()/len(s.get_items()))
+        self.sort(key=lambda s: -s.covered_area()/len(s.get_items())/s.fillrate())
 
 
     def fits(self,item):
@@ -276,14 +280,17 @@ class Strip(list):
             try: del unplaced[p.id]
             except: pass
         unplaced = unplaced.values()
+        random.shuffle(unplaced)
          
         self.populate(unplaced)
 
-        self.update_dimensions(W,H)
-
-        pdebug(self,"here 4")
+        self.update_dimensions(W,H,check=True)
 
         self.sort_recursive()
+
+        self.update_dimensions(W,H,check=True)
+
+        pdebug(self,"here 4")
 
         assert(len(unplaced)==0)
 
@@ -293,14 +300,14 @@ class Strip(list):
         assert(self.h<=H)
         assert(self.w<=W)
 
-    def update_dimensions(self,W,H):
-        self.update_sizes()
+    def update_dimensions(self,W,H,check=False):
+        self.update_sizes(W,H,check=check)
         self.update_available_space(W,H)
         # assertion might fail for floating point coordinates
         #pairs = self.check_for_overlap()
         #assert(len(pairs)==0)
 
-    def update_sizes(self,x=0,y=0):
+    def update_sizes(self,W,H,check=False,x=0,y=0):
         """Update the minimum sizes required to accommodate each subitem."""
         h = 0
         w = 0
@@ -314,13 +321,17 @@ class Strip(list):
                 item.x = x
                 item.y = y
             else:
-                ew,eh = item.update_sizes(x,y)
+                ew,eh = item.update_sizes(W,H,check=check,x=x,y=y)
                 w,h = self.dim_inc(w,h,ew,eh)
 
             x,y = self.update_sizes_inc_coord(x,y,item)
 
         self.h = h
         self.w = w
+
+        if check:
+            assert(self.w+self.x<=W)
+            assert(self.h+self.y<=H)
 
         return w,h
 
@@ -585,23 +596,20 @@ class StripChromosome(pygena.BaseChromosome):
     def repair(self):
         self.strip.fix_layout(self.items,self.W,self.H)
         # must have all items in the layout
-        if len(self.strip.get_items())!=len(self.items):
-            print "Danger, Will Robinson!"
-            print repr(self.strip)
         assert(len(self.strip.get_items())==len(self.items)) 
         self.evaluate()
 
     def evaluate(self):
-        self.score = self.strip.w/self.strip.fillrate()
-        #self.score = self.strip.l
+        self.score = self.strip.w/math.sqrt(self.strip.fillrate())
+        #self.score = self.strip.w
 
     def asString(self):
-        return 'items=%d, h=%d, w=%d, fillrate=%f' % \
-                (len(self.strip.get_items()), self.strip.h,
-                 self.strip.w, self.strip.fillrate())
+        return 'w=%s, h=%s, fillrate=%s' % \
+                (self.strip.w,
+                 self.strip.h, self.strip.fillrate())
 
 
-def optimize(items,H,generations=30,verbose=False,randomize=False):
+def optimize(items,H,generations=200,plateau=20,pop_size=100,verbose=False,randomize=False):
     items.sort(key=lambda x: x.area(), reverse=True)
     Strip().update_item_min_dims(items)
     StripChromosome.items = items
@@ -614,13 +622,13 @@ def optimize(items,H,generations=30,verbose=False,randomize=False):
         min([i.h for i in items]+[i.w for i in items])
     
     env = pygena.Population(StripChromosome, maxgenerations=generations,
+                            maxplateau=plateau,
                             optimum=0,
                             tournament=pygena.roulette_tournament,
-                            size=100,
-                            crossover_rate=0.7, mutation_rate=0.2)
+                            size=pop_size,
+                            crossover_rate=0.7, mutation_rate=0.1)
     best = env.run()
     best.strip.update_dimensions(StripChromosome.W,StripChromosome.H)
-    #best.strip.sort()
     pickle.dump(best,open("striped_ga.pickle","w"))
     output_items = best.strip.get_items()
 
