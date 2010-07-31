@@ -217,7 +217,7 @@ class Strip(list):
         """
         # first populate substrips
         for item in self:
-            if not isinstance(item,Item):
+            if isinstance(item,Strip):
                 iw,ih = item.w,item.h
                 item.populate(items)
                 dw,dh = item.w-iw,item.h-ih
@@ -233,12 +233,9 @@ class Strip(list):
                     self.place(items,item)
 
     def place(self,items,item):
-        if self.is_wrappable(item):
-            s = self.ortho()
-            s.append(item)
-            self.append(s)
-        else:
-            self.append(item)
+        s = self.ortho()
+        s.append(item)
+        self.append(s)
         items.remove(item)
         self.w,self.h = self.dim_inc(self.w,self.h,item.w,item.h)
 
@@ -356,12 +353,6 @@ class Strip(list):
         elif isinstance(item,type(self)):
             self[i:i+1] = self[i]
             # no need to update dimensions
-        # unwrap items
-        elif isinstance(item,self.ortho) and \
-             len(item)==1 and \
-             isinstance(item[0],Item) and \
-             not item.is_wrappable(item[0]):
-            self[i] = item[0]
         # unwrap substrips
         elif isinstance(item,self.ortho) and \
              len(item)==1 and \
@@ -395,10 +386,9 @@ class Strip(list):
                     #    self.reduce_length(d)
                 else:
                     # wrap small items
-                    if self.is_wrappable(item):
-                        s = self.ortho()
-                        s.append(item)
-                        self[i] = s
+                    s = self.ortho()
+                    s.append(item)
+                    self[i] = s
         return dropped
 
 
@@ -458,9 +448,6 @@ class HStrip(Strip):
             if isinstance(item,Strip):
                 item.update_available_space(w,H)
 
-    def is_wrappable(self,item):
-        return item.h+self.min_item_height<=self.H
-
     def update_sizes_inc_coord(self,x,y,item):
         x = x+item.w
         return x,y
@@ -508,9 +495,6 @@ class VStrip(Strip):
             H -= h
             if isinstance(item,Strip):
                 item.update_available_space(W,h)
-
-    def is_wrappable(self,item):
-        return item.w+self.min_item_width<=self.W
 
     def update_sizes_inc_coord(self,x,y,item):
         y = y+item.h
