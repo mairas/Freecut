@@ -121,7 +121,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.assertEqual(s.W,2000)
         self.assertEqual(s.H,2000)
-        self.assertEqual(v.W,2000)
+        self.assertEqual(v.W,100)
         self.assertEqual(v.H,2000)
 
     def test_update_dimensions_2(self):
@@ -138,7 +138,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.assertEqual(s.W,2000)
         self.assertEqual(s.H,2000)
-        self.assertEqual(v.W,2000)
+        self.assertEqual(v.W,i1r.w)
         self.assertEqual(v.H,2000)
 
     def test_update_dimensions_3(self):
@@ -156,7 +156,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.assertEqual(s.W,2000)
         self.assertEqual(s.H,2000)
-        self.assertEqual(v.W,v.w)
+        self.assertEqual(v.W,i1r.w)
         self.assertEqual(v.H,2000)
 
     def test_update_dimensions_4(self):
@@ -175,7 +175,7 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.assertEqual(s[0].W,i1r.w)
         self.assertEqual(s[0].H,2000)
-        self.assertEqual(s[1].W,2000-i1r.w)
+        self.assertEqual(s[1].W,i1r.w)
         self.assertEqual(s[1].H,2000)
 
 
@@ -363,13 +363,11 @@ class TestSequenceFunctions(unittest.TestCase):
         """naive case of fill_score calculation"""
         strip = VStrip()
         strip.append(i4)
-        print repr(strip)
         strip.update_dimensions(1000,1000)
         strip.repair()
         strip.update_dimensions(1000,1000)
         score = strip.fill_score()
-        print repr(strip)
-        self.assertEqual(score,400.*600/(400*400)-1+600.*1000/(400*400)-1)
+        self.assertEqual(score,1000.*1000/(400*400)-1+1000.*400/(400*400)-1)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)

@@ -189,7 +189,7 @@ class Strip(list):
 
 
     def sort_recursive(self):
-        "recursively sort the subitems according to covered area"
+        "recursively sort the subitems according to item breadth"
         # first sort substrips
         for s in [s for s in self if isinstance(s,Strip)]:
             s.sort_recursive()
@@ -452,13 +452,9 @@ class HStrip(Strip):
         self.W = W
         self.H = H
 
-        for i,item in enumerate(self):
-            if i < len(self)-1:
-                # not the last item in strip
-                w = min(item.w,W)
-                W -= w
-            else:
-                w = W
+        for item in self:
+            w = min(item.w,W)
+            W -= w
             if isinstance(item,Strip):
                 item.update_available_space(w,H)
 
@@ -507,14 +503,10 @@ class VStrip(Strip):
         self.W = W
         self.H = H
 
-        for i,item in enumerate(self):
-            if i < len(self)-1:
-                # not the last item in strip
-                h = min(item.h,H)
-                H -= h
-            else:
-                h = H
-            if not isinstance(item,Item):
+        for item in self:
+            h = min(item.h,H)
+            H -= h
+            if isinstance(item,Strip):
                 item.update_available_space(W,h)
 
     def is_wrappable(self,item):
