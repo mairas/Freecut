@@ -310,9 +310,6 @@ class Strip(list):
     def update_dimensions(self,W,H,check=False):
         self.update_sizes(W,H,check=check)
         self.update_available_space(W,H)
-        # assertion might fail for floating point coordinates
-        #pairs = self.check_for_overlap()
-        #assert(len(pairs)==0)
 
     def update_sizes(self,W,H,check=False,x=0,y=0):
         """Update the minimum sizes required to accommodate each subitem."""
@@ -391,21 +388,6 @@ class Strip(list):
                     self[i] = s
         return dropped
 
-
-    def check_for_overlap(self):
-        """
-        check whether any items in the strip overlap
-        """
-
-        pairs = []
-
-        items = self.get_items()
-
-        for item1,item2 in itertools.combinations(items,2):
-            if item1.overlaps(item2):
-                pairs.append((item1,item2))
-
-        return pairs
 
 
 class HStrip(Strip):
