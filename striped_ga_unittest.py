@@ -264,8 +264,6 @@ class TestSequenceFunctions(unittest.TestCase):
         v.append(i3)
         s.append(v)
 
-        s.update_item_min_dims(items)
-
         s.update_dimensions(2000,350)
         s.repair()
 
@@ -279,8 +277,6 @@ class TestSequenceFunctions(unittest.TestCase):
         h.append(i3)
         v.append(h)
         s.append(v)
-
-        s.update_item_min_dims(items)
 
         s.update_dimensions(2000,2000)
         s.repair()
@@ -298,8 +294,6 @@ class TestSequenceFunctions(unittest.TestCase):
         v.append(i4)
         s.append(v)
         s.append(i3)
-
-        s.update_item_min_dims([i3,i4])
 
         s.update_dimensions(2000,600)
 
@@ -350,7 +344,6 @@ class TestSequenceFunctions(unittest.TestCase):
                  Item(ItemType(400,400,'piece 2',True),
                       rotated=False,x=None,y=None),
                 ]
-        Strip().update_item_min_dims(items)
 
         strip = HStrip()
         strip.update_dimensions(10000,1000)

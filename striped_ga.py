@@ -132,21 +132,6 @@ class Strip(list):
                 (type(self).__name__,self.w,self.h,self.W,self.H,self.x,self.y,s_i)
 
 
-    # note: this is a class method!
-    def update_item_min_dims(self,items):
-        """Find out the dimensions of the smallest items.
-        Unallocated dimensions smaller than those found can be
-        ignored in the future."""
-        Strip.min_item_height = 1e308
-        Strip.min_item_width = 1e308
-        for item in items:
-            Strip.min_item_height = min(Strip.min_item_height,item.h)
-            Strip.min_item_width = min(Strip.min_item_width,item.w)
-            if not item.rotatable:
-                Strip.min_item_width = min(Strip.min_item_height,item.h)
-                Strip.min_item_height = min(Strip.min_item_width,item.w)
-
-
     def area(self):
         return self.w * self.h
         
@@ -591,7 +576,6 @@ class StripChromosome(pygena.BaseChromosome):
 
 def optimize(items,H,generations=200,plateau=20,pop_size=100,verbose=False,randomize=False):
     items.sort(key=lambda x: x.area(), reverse=True)
-    Strip().update_item_min_dims(items)
     StripChromosome.items = items
     StripChromosome.H = H
     StripChromosome.W = 1e6 # any large value should do
