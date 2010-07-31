@@ -301,6 +301,28 @@ class TestSequenceFunctions(unittest.TestCase):
 
         self.assertEqual(type(s[1]),VStrip)
 
+    def test_repair_wrap_2(self):
+        """
+        only items with available space should be wrapped
+        
+        currently, the first item gets wrapped and the
+        second one unwrapped, which is totally wrong
+        """
+
+        s = HStrip(400,400,10000,1000,0,0,[
+              VStrip(400,900,400,1000,0,0,[
+                Item(ItemType(400,400,'piece 2',True),rotated=False,x=0,y=0),
+                HStrip(300,500,400,500,0,400,[
+                  Item(ItemType(300,500,'piece 1',True),rotated=False,x=0,y=400)
+                ])
+              ])
+            ])
+        print repr(s)
+        s.repair()
+        print repr(s)
+        self.assertEqual(type(s[0][0]),Item)
+        self.assertEqual(type(s[0][1]),HStrip)
+
     def test_remove_duplicates_2(self):
         """
         this layout has one duplicate item that should be removed
@@ -339,9 +361,9 @@ class TestSequenceFunctions(unittest.TestCase):
         """
         simplest test of populate that could be made to fail
         """
-        items = [Item(ItemType(300,600,'piece 1',True),
+        items = [Item(ItemType(400,400,'piece 2',True),
                       rotated=False,x=None,y=None),
-                 Item(ItemType(400,400,'piece 2',True),
+                 Item(ItemType(300,500,'piece 1',True),
                       rotated=False,x=None,y=None),
                 ]
 
@@ -351,6 +373,13 @@ class TestSequenceFunctions(unittest.TestCase):
         strip.populate(items)
         # all items must be placed after populate
         self.assertEqual(len(items),0)
+        # items ought to have their locations set
+        # items should be within a VStrip within the HStrip
+        print repr(strip)
+        self.assertEqual(strip[0][0].x,0)
+        self.assertEqual(strip[0][0].y,0)
+        self.assertEqual(strip[0][1].x,0)
+        self.assertEqual(strip[0][1].y,400)
 
     def test_fill_score_1(self):
         """naive case of fill_score calculation"""

@@ -166,10 +166,11 @@ class Strip(list):
 
     def get_strips(self):
         """Recursively get substrips of a strip."""
-        strips = [self]
+        strips = []
         for item in self:
             if not isinstance(item,Item):
                 strips += item.get_strips()
+        strips.append(self)
         return strips
 
 
@@ -193,22 +194,30 @@ class Strip(list):
         f = item.x+item.w<=self.x+self.W and item.y+item.h<=self.y+self.H
         return f
 
-
     def populate(self,items):
         """
         place all items in the strip
 
         removes elements from the items list
         """
-        # first populate substrips
-        for item in self:
-            if isinstance(item,Strip):
-                iw,ih = item.w,item.h
-                item.populate(items)
-                dw,dh = item.w-iw,item.h-ih
-                self.populate_inc_dims(item,dw,dh)
+
         for item in items[:]:
-            # available width and height
+        #    self.find_place(items,item)
+            strip,rotated = self.find_best_place(item)
+            if rotated:
+                item.rotate()
+            strip.place(items,item)
+
+
+    def find_place(self,items,item):
+        """
+        find a place for an item (depth-first)
+        """
+        for strip_item in self:
+            if isinstance(strip_item,Strip):
+                strip_item.find_place(items,item)
+        if item in items:
+            # item not yet placed
             av_width,av_height = self.get_available_space()
             if item.h<=av_height and item.w<=av_width:
                 self.place(items,item)
@@ -217,12 +226,42 @@ class Strip(list):
                 if item.h<=av_height and item.w<=av_width:
                     self.place(items,item)
 
+
     def place(self,items,item):
         s = self.ortho()
         s.append(item)
         self.append(s)
         items.remove(item)
-        self.w,self.h = self.dim_inc(self.w,self.h,item.w,item.h)
+        self.update_dimensions(self.W,self.H)
+
+    def find_best_place(self,item):
+        """
+        find a place for an item with the smallest fill_score increase
+        """
+        strips = self.get_strips()
+        best_score = 1e308
+        best_pos = ()
+        for strip in strips:
+            av_width,av_height = strip.get_available_space()
+            if item.h<=av_height and item.w<=av_width:
+                strip.append(item)
+                score = strip.fill_score()
+                strip.pop()
+                if score<best_score:
+                    best_score = score
+                    best_pos = (strip,False)
+            # also try rotated
+            if item.w<=av_height and item.h<=av_width:
+                item.rotate()
+                strip.append(item)
+                score = strip.fill_score()
+                strip.pop()
+                if score<best_score:
+                    best_score = score
+                    best_pos = (strip,True)
+                # rotate the item to its original orientation
+                item.rotate()
+        return best_pos
 
     def remove_duplicates(self,seen):
         """
@@ -355,19 +394,16 @@ class Strip(list):
 
         for i in range(len(self)-1,-1,-1):
             item = self[i]
-            if not isinstance(item,Item):
+            if isinstance(item,Strip):
                 dropped += item.repair()
                 self.repair_strip(i,item)
             else:
                 if not self.fits(item):
                     d = self.pop(i)
                     dropped.append(d)
-                    #if self.same_width(d):
-                    #    self.update_sizes()
-                    #else:
-                    #    self.reduce_length(d)
-                else:
-                    # wrap small items
+                elif self.breadth(item)<self.B:
+                    # only wrap items if their breadth is less than
+                    # the available breadth
                     s = self.ortho()
                     s.append(item)
                     self[i] = s
@@ -390,6 +426,9 @@ class HStrip(Strip):
 
     def breadth(self,s):
         return s.h
+
+    L = property(lambda self: self.W)
+    B = property(lambda self: self.H)
 
     def dim_inc(self,w,h,ew,eh):
         """Increase current strip dimensions according to the element size."""
@@ -438,6 +477,9 @@ class VStrip(Strip):
 
     def breadth(self,s):
         return s.w
+
+    L = property(lambda self: self.H)
+    B = property(lambda self: self.W)
 
     def dim_inc(self,w,h,ew,eh):
         """Increase current strip dimensions according to the element size."""
@@ -590,7 +632,7 @@ def optimize(items,H,generations=200,plateau=20,pop_size=100,verbose=False,rando
                             optimum=0,
                             tournament=pygena.roulette_tournament,
                             size=pop_size,
-                            crossover_rate=0.7, mutation_rate=0.1)
+                            crossover_rate=0.7, mutation_rate=0.3)
     best = env.run()
     best.strip.update_dimensions(StripChromosome.W,StripChromosome.H)
     pickle.dump(best,open("striped_ga.pickle","w"))

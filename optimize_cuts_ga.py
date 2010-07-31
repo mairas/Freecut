@@ -73,6 +73,12 @@ def verify_result(items,W,H):
             raise ValueError('item exceeds maximum height')
 
 if __name__=='__main__':
+    try:
+        import psyco
+        psyco.full()
+    except ImportError:
+        pass
+
     parser = OptionParser()
     parser.set_defaults(pairs=[])
     #parser.add_option("-o","--output",dest="output",
