@@ -356,10 +356,20 @@ class TestSequenceFunctions(unittest.TestCase):
         strip.update_dimensions(10000,1000)
         #pdb.set_trace()
         strip.populate(items)
-        print "after populate:"
-        print repr(strip)
         # all items must be placed after populate
         self.assertEqual(len(items),0)
+
+    def test_fill_score_1(self):
+        """naive case of fill_score calculation"""
+        strip = VStrip()
+        strip.append(i4)
+        print repr(strip)
+        strip.update_dimensions(1000,1000)
+        strip.repair()
+        strip.update_dimensions(1000,1000)
+        score = strip.fill_score()
+        print repr(strip)
+        self.assertEqual(score,400.*600/(400*400)-1+600.*1000/(400*400)-1)
 
 if __name__ == '__main__':
     suite = unittest.TestLoader().loadTestsFromTestCase(TestSequenceFunctions)

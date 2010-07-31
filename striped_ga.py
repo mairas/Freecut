@@ -86,6 +86,9 @@ class Item(object):
     def fillrate(self):
         return 1
 
+    def fill_score(self):
+        return 0
+
     def get_items(self):
         return [self]
 
@@ -147,6 +150,8 @@ class Strip(list):
     def area(self):
         return self.w * self.h
         
+    def available_area(self):
+        return self.W * self.H
 
     def covered_area(self):
         A = 0
@@ -154,10 +159,14 @@ class Strip(list):
             A += item.covered_area()
         return A
     
-
     def fillrate(self):
         return self.covered_area() / self.area()
 
+    def fill_score(self):
+        score = self.available_area()/self.covered_area()-1
+        for item in self:
+            score += item.fill_score()
+        return score
 
     def get_items(self):
         items = []
@@ -186,7 +195,8 @@ class Strip(list):
             s.sort_recursive()
         # then sort the current strip
         #self.sort(key=lambda s: -s.covered_area()/len(s.get_items()))
-        self.sort(key=lambda s: -s.covered_area()/len(s.get_items())/s.fillrate())
+        self.sort(key=lambda s:
+                  -self.breadth(s))
 
 
     def fits(self,item):
@@ -418,6 +428,12 @@ class HStrip(Strip):
     def __str__(self):
         return "H(%s,%s,%s,%s)" % (self.w,self.h,self.W,self.H)
 
+    def length(self):
+        return self.w
+
+    def breadth(self,s):
+        return s.h
+
     def dim_inc(self,w,h,ew,eh):
         """Increase current strip dimensions according to the element size."""
         h = max(h,eh)
@@ -443,7 +459,7 @@ class HStrip(Strip):
                 W -= w
             else:
                 w = W
-            if not isinstance(item,Item):
+            if isinstance(item,Strip):
                 item.update_available_space(w,H)
 
     def is_wrappable(self,item):
@@ -466,6 +482,12 @@ class VStrip(Strip):
 
     def __str__(self):
         return "V(%s,%s,%s,%s)" % (self.w,self.h,self.W,self.H)
+
+    def length(self):
+        return self.h
+
+    def breadth(self,s):
+        return s.w
 
     def dim_inc(self,w,h,ew,eh):
         """Increase current strip dimensions according to the element size."""
@@ -600,13 +622,13 @@ class StripChromosome(pygena.BaseChromosome):
         self.evaluate()
 
     def evaluate(self):
-        self.score = self.strip.w/math.sqrt(self.strip.fillrate())
-        #self.score = self.strip.w
+        #self.score = self.strip.w/math.sqrt(self.strip.fillrate())
+        self.score = self.strip.w + self.strip.fill_score()/self.strip.w
 
     def asString(self):
-        return 'w=%s, h=%s, fillrate=%s' % \
+        return 'w=%s, h=%s, fill_score=%s' % \
                 (self.strip.w,
-                 self.strip.h, self.strip.fillrate())
+                 self.strip.h, self.strip.fill_score())
 
 
 def optimize(items,H,generations=200,plateau=20,pop_size=100,verbose=False,randomize=False):

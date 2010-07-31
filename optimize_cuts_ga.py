@@ -6,6 +6,7 @@ import striped_ga as optalg
 from optparse import OptionParser
 from pyparsing import *
 from itemplot import *
+import itertools
 
 def parse_input(f):
     # define the grammar
@@ -56,6 +57,21 @@ def remove_trim(items,trim):
         typ.w -= trim
         typ.h -= trim
 
+def verify_result(items,W,H):
+    # check that none of the items overlap each other
+
+    for item1,item2 in itertools.combinations(items,2):
+        if item1.overlaps(item2):
+            raise ValueError('Overlapping items')
+
+    # check that none of the items exceeds the board size
+
+    for item in items:
+        if item.x+item.w > W:
+            raise ValueError('item exceeds maximum width')
+        elif item.y+item.h > H:
+            raise ValueError('item exceeds maximum height')
+
 if __name__=='__main__':
     parser = OptionParser()
     parser.set_defaults(pairs=[])
@@ -73,6 +89,9 @@ if __name__=='__main__':
                       default=10)
     parser.add_option("-r","--randomize",dest="randomize",action="store_true",
                       default=False)
+    parser.add_option("--no-plot",dest="plot_result",action="store_false",
+                      help="do not plot the resulting layout",
+                      default=True)
     parser.add_option("-p","--pop_size",dest="pop_size",type="int",
                       help="the size of the population",
                       default=100)
@@ -82,6 +101,7 @@ if __name__=='__main__':
     trim = options.trim
     generations = options.generations
     randomize = options.randomize
+    plot_result = options.plot_result
     pop_size = options.pop_size
 
     items = input_items(args[0])
@@ -92,11 +112,16 @@ if __name__=='__main__':
                               randomize=randomize,
                               pop_size=pop_size,verbose=True)
 
+    # verify the result
+
+    verify_result(items,W,H+trim)
+
     # remove the trim from the pieces
     W -= trim
     remove_trim(items,trim)
     
-    plot_layout(items,W,H,show=True)
+    if plot_result:
+        plot_layout(items,W,H,show=True)
     
     for item in items:
         print item.w,item.h,item.x,item.y
